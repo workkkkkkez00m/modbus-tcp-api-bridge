@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>BMS Meter API Mock</title>
+</head>
+
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div>
+        <h1>BMS Meter API Mock</h1>
+        <p>模擬電表 HTTP API。</p>
+      </div>
+      <div id="serverBadge" class="badge badge-stopped">Stopped</div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Server 控制</h2>
+
+        <div class="grid">
+          <label>
+            Host
+            <input id="hostInput" value="127.0.0.1" />
+          </label>
+
+          <label>
+            Port
+            <input id="portInput" type="number" value="3101" />
+          </label>
+
+          <label>
+            API Path
+            <input id="pathInput" value="/api/energy" />
+          </label>
+
+          <label>
+            Delay MS
+            <input id="delayInput" type="number" value="0" />
+          </label>
+
+          <label class="full">
+            Scenario
+            <select id="scenarioSelect">
+              <option value="normal">normal</option>
+              <option value="no-total">no-total</option>
+              <option value="http-500">http-500</option>
+              <option value="invalid-json">invalid-json</option>
+              <option value="invalid-schema">invalid-schema</option>
+              <option value="timeout">timeout</option>
+              <option value="custom">custom</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="startButton">Start Server</button>
+          <button id="stopButton" class="secondary">Stop Server</button>
+          <button id="restartButton" class="secondary">Restart Server</button>
+        </div>
+
+        <div class="info-box">
+          <div class="info-label">Current URL</div>
+          <code id="currentUrl">http://127.0.0.1:3101/api/energy</code>
+        </div>
+
+        <div id="messageBox" class="message"></div>
+      </section>
+
+      <section class="card">
+        <h2>Payload Editor</h2>
+        <p class="muted">
+          可貼上實際廠商 API 回傳格式。按 Use Edited Payload 後，server 會以 custom scenario 回傳此內容。
+        </p>
+
+        <textarea id="payloadEditor" spellcheck="false"></textarea>
+
+        <div class="button-row">
+          <button id="useEditedPayloadButton">Use Edited Payload</button>
+          <button id="formatJsonButton" class="secondary">Format JSON</button>
+          <button id="resetPayloadButton" class="secondary">Reset Example</button>
+        </div>
+
+        <div id="payloadValidation" class="message"></div>
+      </section>
+
+      <section class="card">
+        <h2>Copy Test Command</h2>
+        <div class="command-list">
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/health"'>Copy health curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy"'>Copy normal curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=no-total"'>Copy
+            no-total curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=http-500"'>Copy
+            http-500 curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-json"'>Copy
+            invalid-json curl</button>
+          <button class="copy-command"
+            data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-schema"'>Copy invalid-schema
+            curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=timeout"'>Copy
+            timeout curl</button>
+          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=custom"'>Copy
+            custom curl</button>
+        </div>
+        <pre id="copiedCommand"></pre>
+      </section>
+
+      <section class="card">
+        <h2>操作說明</h2>
+
+        <ol class="guide-list">
+          <li>確認 Host、Port、API Path 是否正確。</li>
+          <li>選擇要測試的 Scenario。</li>
+          <li>按下 <strong>Start Server</strong> 啟動 mock API server。</li>
+          <li>其他專案可透過 <code>Current URL</code> 呼叫測試 API。</li>
+          <li>若要測試自訂資料，請在 Payload Editor 貼上 JSON，並按 <strong>Use Edited Payload</strong>。</li>
+          <li>Request Log 會顯示最近收到的 API 請求。</li>
+        </ol>
+
+        <h3>Scenario 實際作用</h3>
+
+        <table class="scenario-table">
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>API 回傳行為</th>
+              <th>主要用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>normal</code></td>
+              <td>回傳合法 payload，包含 <code>total</code>，數值會微幅變動。</td>
+              <td>測試一般正常資料讀取。</td>
+            </tr>
+            <tr>
+              <td><code>no-total</code></td>
+              <td>回傳合法 payload，但不包含 <code>total</code>。</td>
+              <td>測試主專案是否會用 office + residential 自動加總。</td>
+            </tr>
+            <tr>
+              <td><code>http-500</code></td>
+              <td>回傳 HTTP 500。</td>
+              <td>測試 HTTP 錯誤時的 fallback。</td>
+            </tr>
+            <tr>
+              <td><code>invalid-json</code></td>
+              <td>回傳故意損壞的 JSON 字串。</td>
+              <td>測試 JSON parse error 時的 fallback。</td>
+            </tr>
+            <tr>
+              <td><code>invalid-schema</code></td>
+              <td>回傳合法 JSON，但欄位缺漏或型別錯誤。</td>
+              <td>測試 validation error 時的 fallback。</td>
+            </tr>
+            <tr>
+              <td><code>timeout</code></td>
+              <td>延遲回應，預設至少 10 秒。</td>
+              <td>測試 timeout fallback。</td>
+            </tr>
+            <tr>
+              <td><code>custom</code></td>
+              <td>回傳 Payload Editor 中按下 <strong>Use Edited Payload</strong> 後儲存的內容。</td>
+              <td>測試真實廠商 API 格式或特殊資料格式。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Query String 覆蓋規則</h3>
+
+        <p class="muted">
+          如果 URL 有指定 <code>?scenario=xxx</code>，會優先使用 URL 指定的 scenario。
+          如果 URL 沒有指定 scenario，才會使用 UI 下拉選單目前選擇的 scenario。
+        </p>
+
+        <pre>http://127.0.0.1:3101/api/energy
+http://127.0.0.1:3101/api/energy?scenario=http-500
+http://127.0.0.1:3101/api/energy?scenario=custom</pre>
+      </section>
+
+      <section class="card full-width">
+        <div class="section-title-row">
+          <div>
+            <h2>Request Log</h2>
+            <p class="muted">最多保留最近 100 筆請求。</p>
+          </div>
+          <button id="clearLogsButton" class="secondary">Clear Logs</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Scenario</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <tr>
+              <td colspan="5" class="empty">No request logs.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/renderer.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,295 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #e5e7eb;
+  background: #0b0f1a;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 960px;
+  min-height: 100vh;
+  background: #0b0f1a;
+  color: #e5e7eb;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #3b82f6;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+button:hover {
+  filter: brightness(0.96);
+}
+
+button.secondary {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid #273044;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #111827;
+  color: #e5e7eb;
+}
+
+textarea {
+  width: 100%;
+  min-height: 340px;
+  resize: vertical;
+  border: 1px solid #d6deeb;
+  border-radius: 12px;
+  padding: 14px;
+  background: #111827;
+  color: #e5e7eb;
+  line-height: 1.55;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  font-size: 13px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #9aa5b1;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+pre {
+  margin: 0;
+  overflow: auto;
+  border-radius: 12px;
+  padding: 14px;
+  background: #111827;
+  color: #e5e7eb;
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+code {
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0f172a;
+}
+
+th,
+td {
+  border-bottom: 1px solid #1f2a3a;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+th {
+  color: #cbd5f5;
+  font-weight: 700;
+  background: #111827;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  background: #0f172a;
+  border-bottom: 1px solid #1f2a3a;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.app-header p {
+  margin: 6px 0 0;
+  color: #a0aec0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 20px 28px 28px;
+}
+
+.card {
+  border: 1px solid #1f2a3a;
+  border-radius: 18px;
+  padding: 18px;
+  background: #0f172a;
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.45);
+}
+
+.card h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.card h3 {
+  margin: 16px 0 8px;
+  font-size: 14px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.badge-running {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.badge-stopped {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.info-box {
+  margin-top: 16px;
+  border: 1px solid #1f2a3a;
+  border-radius: 12px;
+  padding: 12px;
+  background: #0b1220;
+}
+
+.info-label {
+  margin-bottom: 6px;
+  color: #a0aec0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message {
+  min-height: 22px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #9aa5b1;
+}
+
+.message.success {
+  color: #86efac;
+}
+
+.message.error {
+  color: #fca5a5;
+}
+
+.muted {
+  margin: -6px 0 12px;
+  color: #9aa5b1;
+  font-size: 13px;
+}
+
+.command-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.command-list button {
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.empty {
+  text-align: center;
+  color: #fcfdff;
+}
+
+.guide-list {
+  margin: 0 0 18px;
+  padding-left: 22px;
+  color: #fcfdff;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.guide-list li + li {
+  margin-top: 4px;
+}
+
+.scenario-table {
+  margin: 10px 0 18px;
+}
+
+.scenario-table td:first-child {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.scenario-table td {
+  line-height: 1.55;
+}
