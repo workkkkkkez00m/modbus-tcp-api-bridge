@@ -114,6 +114,10 @@ function normalizeAction(action) {
   return 'manual';
 }
 
+function normalizeUndefinedBooleanMode(mode) {
+  return mode === 'strict' ? 'strict' : 'compatibility-false';
+}
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -285,6 +289,7 @@ class MockModbusTcpServer {
       host: '127.0.0.1',
       port: 1502,
       unitId: 1,
+      undefinedBooleanMode: 'compatibility-false',
       points: [],
       rawCoils: {},
       rawDiscreteInputs: {},
@@ -308,6 +313,7 @@ class MockModbusTcpServer {
         port: this.state.port,
         unitId: this.state.unitId,
         requestAddressBaseMode: this.state.requestAddressBaseMode,
+        undefinedBooleanMode: this.state.undefinedBooleanMode,
       },
     };
   }
@@ -601,18 +607,26 @@ class MockModbusTcpServer {
         ? error.exceptionCode
         : 0x03;
 
-      this.addLog({
-        client: getClientLabel(socket),
-        unitId,
-        functionCode: padFunctionCode(functionCode),
-        regType: '-',
-        ...buildRequestAddressLogFields(null, null, null, this.state.requestAddressBaseMode),
-        action: '失敗',
-        address: null,
-        quantity: null,
-        status: '錯誤',
-        message: error.message,
-      });
+      const logContext = error instanceof ModbusRequestError
+        ? error.logContext
+        : null;
+
+      if (logContext) {
+        this.addLog(logContext);
+      } else {
+        this.addLog({
+          client: getClientLabel(socket),
+          unitId,
+          functionCode: padFunctionCode(functionCode),
+          regType: '-',
+          ...buildRequestAddressLogFields(null, null, null, this.state.requestAddressBaseMode),
+          action: '失敗',
+          address: null,
+          quantity: null,
+          status: '錯誤',
+          message: error.message,
+        });
+      }
 
       return this.buildExceptionResponse(transactionId, unitId, functionCode, exceptionCode);
     }
@@ -627,6 +641,15 @@ class MockModbusTcpServer {
     const quantity = pdu.readUInt16BE(3);
     const startAddress = this.getResolvedRequestAddress(requestStartAddress);
     const resolutionNote = this.getRequestAddressResolutionNote(requestStartAddress);
+    const configuredUnitId = this.state.unitId;
+    const unitIdMatched = unitId === configuredUnitId;
+    const requestAddressFields = buildRequestAddressLogFields(
+      regType,
+      requestStartAddress,
+      quantity,
+      this.state.requestAddressBaseMode
+    );
+    const undefinedBooleanMode = normalizeUndefinedBooleanMode(this.state.undefinedBooleanMode);
 
     if (quantity < 1 || quantity > 2000) {
       throw new ModbusRequestError('讀取 bit 數量必須介於 1 到 2000。', 0x03);
@@ -639,6 +662,97 @@ class MockModbusTcpServer {
     const actionPointIds = this.applyPointActionsForRange(regType, startAddress, quantity);
 
     const rawMap = this.getRawMap(regType);
+    const undefinedAddresses = [];
+    let undefinedAddressCount = 0;
+
+    for (let index = 0; index < quantity; index += 1) {
+      const address = startAddress + index;
+      const key = String(address);
+
+      if (!Object.hasOwn(rawMap, key)) {
+        undefinedAddressCount += 1;
+        if (undefinedAddresses.length < 20) {
+          undefinedAddresses.push(address);
+        }
+      }
+    }
+
+    if (regType === 'coil' && undefinedAddressCount > 0 && undefinedBooleanMode === 'strict') {
+      const error = new ModbusRequestError('位址超出範圍。', 0x02);
+      error.logContext = {
+        client: getClientLabel(socket),
+        unitId,
+        functionCode: 'FC01',
+        regType: REG_TYPE_META.coil.label,
+        ...requestAddressFields,
+        action: '讀取',
+        requestAddress: quantity === 1 ? requestStartAddress : null,
+        resolvedInternalAddress: quantity === 1 ? startAddress : null,
+        referenceAddress: quantity === 1
+          ? toReferenceAddress(regType, startAddress)
+          : null,
+        address: startAddress,
+        quantity,
+        hasUndefinedAddress: true,
+        undefinedAddressCount,
+        undefinedAddresses,
+        undefinedBooleanMode,
+        exceptionCode: '0x02',
+        requestAddressResolutionNote: resolutionNote,
+        status: '錯誤',
+        message: '讀取線圈失敗：讀取範圍包含未建立位址',
+      };
+      throw error;
+    }
+
+    if (regType === 'discreteInput') {
+      if (undefinedAddressCount > 0 && undefinedBooleanMode === 'strict') {
+        const error = new ModbusRequestError('位址超出範圍。', 0x02);
+        error.logContext = {
+          client: getClientLabel(socket),
+          unitId,
+          configuredUnitId,
+          unitIdMatched,
+          functionCode: 'FC02',
+          regType: 'discreteInput',
+          regTypeLabel: REG_TYPE_META.discreteInput.label,
+          ...requestAddressFields,
+          action: '讀取',
+          requestAddress: quantity === 1 ? requestStartAddress : null,
+          resolvedInternalAddress: quantity === 1 ? startAddress : null,
+          referenceAddress: quantity === 1
+            ? toReferenceAddress(regType, startAddress)
+            : null,
+          address: startAddress,
+          quantity,
+          hasUndefinedAddress: true,
+          undefinedAddressCount,
+          undefinedAddresses,
+          undefinedBooleanMode,
+          exceptionCode: '0x02',
+          requestAddressResolutionNote: resolutionNote,
+          status: '錯誤',
+          message: '讀取離散輸入失敗：讀取範圍包含未建立位址',
+        };
+        throw error;
+      }
+    }
+
+    const readRawMap = undefinedBooleanMode === 'compatibility-false'
+      ? { ...rawMap }
+      : rawMap;
+
+    if (undefinedBooleanMode === 'compatibility-false') {
+      for (let index = 0; index < quantity; index += 1) {
+        const address = startAddress + index;
+        const key = String(address);
+
+        if (!Object.hasOwn(readRawMap, key)) {
+          readRawMap[key] = false;
+        }
+      }
+    }
+
     const byteCount = Math.ceil(quantity / 8);
     const responsePdu = Buffer.alloc(2 + byteCount);
     responsePdu.writeUInt8(pdu.readUInt8(0), 0);
@@ -649,11 +763,11 @@ class MockModbusTcpServer {
       const address = startAddress + index;
       const key = String(address);
 
-      if (!Object.hasOwn(rawMap, key)) {
+      if (!Object.hasOwn(readRawMap, key)) {
         throw new ModbusRequestError('位址超出範圍。', 0x02);
       }
 
-      const value = Boolean(rawMap[key]);
+      const value = Boolean(readRawMap[key]);
       readValues.push(value);
 
       if (value) {
@@ -675,18 +789,26 @@ class MockModbusTcpServer {
     const referenceAddress = quantity === 1
       ? toReferenceAddress(regType, startAddress)
       : null;
+    const regTypeLabel = REG_TYPE_META[regType].label;
+    const isDiscreteInput = regType === 'discreteInput';
+    const successMessage = regType === 'coil'
+      ? (undefinedAddressCount > 0 && undefinedBooleanMode === 'compatibility-false'
+        ? '讀取線圈成功；未建立位址已以 false 回傳'
+        : '讀取線圈成功')
+      : (undefinedAddressCount > 0 && undefinedBooleanMode === 'compatibility-false'
+        ? '讀取離散輸入成功；未建立位址已以 false 回傳'
+        : '讀取離散輸入成功');
 
     this.addLog({
       client: getClientLabel(socket),
       unitId,
+      ...(isDiscreteInput
+        ? { configuredUnitId, unitIdMatched }
+        : {}),
       functionCode: padFunctionCode(pdu.readUInt8(0)),
-      regType: REG_TYPE_META[regType].label,
-      ...buildRequestAddressLogFields(
-        regType,
-        requestStartAddress,
-        quantity,
-        this.state.requestAddressBaseMode
-      ),
+      regType: isDiscreteInput ? regType : regTypeLabel,
+      ...(isDiscreteInput ? { regTypeLabel } : {}),
+      ...requestAddressFields,
       action: '讀取',
       requestAddress,
       resolvedInternalAddress,
@@ -695,12 +817,17 @@ class MockModbusTcpServer {
       quantity,
       readValues,
       responseBytes,
+      hasUndefinedAddress: undefinedAddressCount > 0,
+      undefinedAddressCount,
+      undefinedAddresses,
+      undefinedBooleanMode,
       ...actionLogFields,
       requestAddressResolutionNote: resolutionNote,
       status: '成功',
       message: regType === 'coil'
         ? '讀取線圈成功'
-        : '讀取離散輸入成功，注意：此功能碼讀取的是 Discrete Input，不是 Coil。',
+        : '讀取離散輸入成功',
+      message: successMessage,
     });
 
     return this.buildResponse(transactionId, unitId, responsePdu);
@@ -998,12 +1125,16 @@ class MockModbusTcpServer {
     const requestAddressBaseMode = normalizeRequestAddressBaseMode(
       config.requestAddressBaseMode ?? this.state.requestAddressBaseMode
     );
+    const undefinedBooleanMode = normalizeUndefinedBooleanMode(
+      config.undefinedBooleanMode ?? this.state.undefinedBooleanMode
+    );
 
     return {
       host,
       port,
       unitId,
       requestAddressBaseMode,
+      undefinedBooleanMode,
     };
   }
 

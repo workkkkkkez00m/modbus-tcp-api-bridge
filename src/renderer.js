@@ -102,6 +102,7 @@ const modbusElements = {
   portInput: document.querySelector('#modbusPortInput'),
   unitIdInput: document.querySelector('#modbusUnitIdInput'),
   requestAddressBaseModeSelect: document.querySelector('#modbusRequestAddressBaseModeSelect'),
+  undefinedBooleanModeSelect: document.querySelector('#modbusPanel #modbusUndefinedBooleanModeSelect'),
   startButton: document.querySelector('#modbusStartButton'),
   stopButton: document.querySelector('#modbusStopButton'),
   restartButton: document.querySelector('#modbusRestartButton'),
@@ -126,6 +127,53 @@ const modbusElements = {
 };
 
 const modbusPointDrafts = new Map();
+
+function ensureModbusUndefinedBooleanModeField() {
+  const buttonRow = document.querySelector('#modbusPanel .button-row');
+  if (!buttonRow) {
+    return document.querySelector('#modbusPanel #modbusUndefinedBooleanModeSelect');
+  }
+
+  const misplacedSelects = document.querySelectorAll('#apiPanel #modbusUndefinedBooleanModeSelect, #apiPanel #unusedModbusUndefinedBooleanModeSelect');
+  misplacedSelects.forEach((select) => {
+    const label = select.closest('label');
+    if (label) {
+      label.hidden = true;
+    }
+
+    const helpText = label?.nextElementSibling;
+    if (helpText?.classList.contains('help-text')) {
+      helpText.hidden = true;
+    }
+  });
+
+  let select = document.querySelector('#modbusPanel #modbusUndefinedBooleanModeSelect');
+  if (select) {
+    return select;
+  }
+
+  const label = document.createElement('label');
+  label.className = 'full';
+  label.textContent = '未建立布林位址處理模式';
+
+  select = document.createElement('select');
+  select.id = 'modbusUndefinedBooleanModeSelect';
+  select.innerHTML = `
+    <option value="compatibility-false" selected>Compatibility：未建立位址回 false / 0</option>
+    <option value="strict">Strict：未建立位址回 exception</option>
+  `;
+  label.append('\n');
+  label.append(select);
+
+  const helpText = document.createElement('p');
+  helpText.className = 'help-text';
+  helpText.textContent = '若 BMS 一次讀取較大範圍，且範圍內包含未建立的 Coil / Discrete Input，可使用 Compatibility 模式避免整段讀取失敗。';
+
+  buttonRow.before(helpText);
+  buttonRow.before(label);
+
+  return select;
+}
 
 function readIntOrFallback(value, fallback) {
   const parsed = Number.parseInt(value, 10);
@@ -170,6 +218,7 @@ function getModbusConfigFromForm() {
     port: readIntOrFallback(modbusElements.portInput.value, 1502),
     unitId: readIntOrFallback(modbusElements.unitIdInput.value, 1),
     requestAddressBaseMode: modbusElements.requestAddressBaseModeSelect?.value || 'standard-0-based',
+    undefinedBooleanMode: modbusElements.undefinedBooleanModeSelect?.value || 'compatibility-false',
   };
 }
 
@@ -436,6 +485,32 @@ function formatModbusLogResponse(log) {
   return log.responseBytes.join(' ');
 }
 
+function formatModbusLogUndefinedInfo(log) {
+  if (!log.hasUndefinedAddress
+    && !Array.isArray(log.undefinedAddresses)
+    && log.undefinedAddressCount == null) {
+    return '';
+  }
+
+  if (Array.isArray(log.undefinedAddresses) && log.undefinedAddresses.length) {
+    return `Undefined: ${log.undefinedAddresses.join(', ')}`;
+  }
+
+  if (log.undefinedAddressCount != null) {
+    return `Undefined: ${log.undefinedAddressCount}`;
+  }
+
+  return 'Undefined: -';
+}
+
+function formatModbusLogExceptionInfo(log) {
+  if (!log.exceptionCode) {
+    return '';
+  }
+
+  return `Exception: ${log.exceptionCode}`;
+}
+
 function formatModbusLogMessage(log) {
   const baseMessage = log.message ?? '-';
   const parts = [baseMessage];
@@ -453,6 +528,16 @@ function formatModbusLogMessage(log) {
 
   if (log.requestAddressResolutionNote) {
     parts.push(log.requestAddressResolutionNote);
+  }
+
+  const undefinedInfo = formatModbusLogUndefinedInfo(log);
+  if (undefinedInfo) {
+    parts.push(undefinedInfo);
+  }
+
+  const exceptionInfo = formatModbusLogExceptionInfo(log);
+  if (exceptionInfo) {
+    parts.push(exceptionInfo);
   }
 
   return parts.join('；');
@@ -556,6 +641,10 @@ function renderModbusStatus(status, options = {}) {
       modbusElements.requestAddressBaseModeSelect.value =
         status.config.requestAddressBaseMode || 'standard-0-based';
     }
+    if (modbusElements.undefinedBooleanModeSelect) {
+      modbusElements.undefinedBooleanModeSelect.value =
+        status.config.undefinedBooleanMode || 'compatibility-false';
+    }
   }
 }
 
@@ -638,7 +727,7 @@ function renderModbusLogs(logs) {
       <td>${escapeHtml(log.client)}</td>
       <td>${escapeHtml(String(log.unitId))}</td>
       <td>${escapeHtml(log.functionCode)}</td>
-      <td>${escapeHtml(log.regType ?? '-')}</td>
+      <td>${escapeHtml(log.regTypeLabel ?? log.regType ?? '-')}</td>
       <td>${escapeHtml(log.action ?? '-')}</td>
       <td>${escapeHtml(formatModbusLogRequest(log))}</td>
       <td>${escapeHtml(formatModbusLogResolved(log))}</td>
@@ -955,6 +1044,7 @@ modbusElements.pointTableBody.addEventListener('click', handlePointTableClick);
 async function init() {
   initModeTabs();
   updateUrlPreview();
+  modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
   syncModbusGeneratorTypeOptions();
 
   await refreshApiStatus();
