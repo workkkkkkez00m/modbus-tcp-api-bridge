@@ -3,211 +3,410 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>BMS Meter API Mock</title>
+  <title>BMS Protocol Mock Lab</title>
 </head>
 
 <body>
   <div id="app">
     <header class="app-header">
       <div>
-        <h1>BMS Meter API Mock</h1>
-        <p>模擬電表 HTTP API。</p>
+        <h1>BMS Protocol Mock Lab</h1>
+        <p>用於 API 模擬、Modbus TCP 模擬與後續橋接流程的獨立 mock app。</p>
       </div>
-      <div id="serverBadge" class="badge badge-stopped">Stopped</div>
+      <div id="serverBadge" class="badge badge-stopped">已停止</div>
     </header>
 
-    <main class="layout">
-      <section class="card">
-        <h2>Server 控制</h2>
+    <nav class="mode-tabs" aria-label="Simulator modes">
+      <button class="mode-tab active" data-mode="api">API 模擬器</button>
+      <button class="mode-tab" data-mode="modbus">Modbus TCP 模擬器</button>
+      <button class="mode-tab" data-mode="bridge">Modbus 對 API 橋接</button>
+    </nav>
 
-        <div class="grid">
-          <label>
-            Host
-            <input id="hostInput" value="127.0.0.1" />
-          </label>
+    <section id="apiPanel" class="mode-panel active" data-mode-panel="api">
+      <main class="layout">
+        <section class="card">
+          <h2>API Server 控制</h2>
 
-          <label>
-            Port
-            <input id="portInput" type="number" value="3101" />
-          </label>
+          <div class="grid">
+            <label>
+              Host
+              <input id="hostInput" value="127.0.0.1" />
+            </label>
 
-          <label>
-            API Path
-            <input id="pathInput" value="/api/energy" />
-          </label>
+            <label>
+              Port
+              <input id="portInput" type="number" value="3101" />
+            </label>
 
-          <label>
-            Delay MS
-            <input id="delayInput" type="number" value="0" />
-          </label>
+            <label>
+              API Path
+              <input id="pathInput" value="/api/energy" />
+            </label>
 
-          <label class="full">
-            Scenario
-            <select id="scenarioSelect">
-              <option value="normal">normal</option>
-              <option value="no-total">no-total</option>
-              <option value="http-500">http-500</option>
-              <option value="invalid-json">invalid-json</option>
-              <option value="invalid-schema">invalid-schema</option>
-              <option value="timeout">timeout</option>
-              <option value="custom">custom</option>
-            </select>
-          </label>
-        </div>
+            <label>
+              延遲毫秒
+              <input id="delayInput" type="number" value="0" />
+            </label>
 
-        <div class="button-row">
-          <button id="startButton">Start Server</button>
-          <button id="stopButton" class="secondary">Stop Server</button>
-          <button id="restartButton" class="secondary">Restart Server</button>
-        </div>
+            <label class="full">
+              情境
+              <select id="scenarioSelect">
+                <option value="normal">normal</option>
+                <option value="no-total">no-total</option>
+                <option value="http-500">http-500</option>
+                <option value="invalid-json">invalid-json</option>
+                <option value="invalid-schema">invalid-schema</option>
+                <option value="timeout">timeout</option>
+                <option value="custom">custom</option>
+              </select>
+            </label>
+          </div>
 
-        <div class="info-box">
-          <div class="info-label">Current URL</div>
-          <code id="currentUrl">http://127.0.0.1:3101/api/energy</code>
-        </div>
+          <div class="button-row">
+            <button id="startButton">啟動 Server</button>
+            <button id="stopButton" class="secondary">停止 Server</button>
+            <button id="restartButton" class="secondary">重新啟動 Server</button>
+          </div>
 
-        <div id="messageBox" class="message"></div>
-      </section>
+          <div class="info-box">
+            <div class="info-label">目前 URL</div>
+            <code id="currentUrl">http://127.0.0.1:3101/api/energy</code>
+          </div>
 
-      <section class="card">
-        <h2>Payload Editor</h2>
-        <p class="muted">
-          可貼上實際廠商 API 回傳格式。按 Use Edited Payload 後，server 會以 custom scenario 回傳此內容。
-        </p>
+          <div id="messageBox" class="message"></div>
+        </section>
 
-        <textarea id="payloadEditor" spellcheck="false"></textarea>
+        <section class="card">
+          <h2>Payload 編輯器</h2>
+          <p class="muted">
+            可直接編輯 JSON payload，並套用為 <code>custom</code> 情境的實際回應內容。
+          </p>
 
-        <div class="button-row">
-          <button id="useEditedPayloadButton">Use Edited Payload</button>
-          <button id="formatJsonButton" class="secondary">Format JSON</button>
-          <button id="resetPayloadButton" class="secondary">Reset Example</button>
-        </div>
+          <textarea id="payloadEditor" spellcheck="false"></textarea>
 
-        <div id="payloadValidation" class="message"></div>
-      </section>
+          <div class="button-row">
+            <button id="useEditedPayloadButton">套用編輯後 Payload</button>
+            <button id="formatJsonButton" class="secondary">格式化 JSON</button>
+            <button id="resetPayloadButton" class="secondary">重設範例</button>
+          </div>
 
-      <section class="card">
-        <h2>Copy Test Command</h2>
-        <div class="command-list">
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/health"'>Copy health curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy"'>Copy normal curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=no-total"'>Copy
-            no-total curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=http-500"'>Copy
-            http-500 curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-json"'>Copy
-            invalid-json curl</button>
-          <button class="copy-command"
-            data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-schema"'>Copy invalid-schema
-            curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=timeout"'>Copy
-            timeout curl</button>
-          <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=custom"'>Copy
-            custom curl</button>
-        </div>
-        <pre id="copiedCommand"></pre>
-      </section>
+          <div id="payloadValidation" class="message"></div>
+        </section>
 
-      <section class="card">
-        <h2>操作說明</h2>
+        <section class="card">
+          <h2>複製測試指令</h2>
 
-        <ol class="guide-list">
-          <li>確認 Host、Port、API Path 是否正確。</li>
-          <li>選擇要測試的 Scenario。</li>
-          <li>按下 <strong>Start Server</strong> 啟動 mock API server。</li>
-          <li>其他專案可透過 <code>Current URL</code> 呼叫測試 API。</li>
-          <li>若要測試自訂資料，請在 Payload Editor 貼上 JSON，並按 <strong>Use Edited Payload</strong>。</li>
-          <li>Request Log 會顯示最近收到的 API 請求。</li>
-        </ol>
+          <div class="command-list">
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/health"'>複製 health curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy"'>複製 normal curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=no-total"'>複製 no-total curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=http-500"'>複製 http-500 curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-json"'>複製 invalid-json curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-schema"'>複製 invalid-schema curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=timeout"'>複製 timeout curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=custom"'>複製 custom curl</button>
+          </div>
 
-        <h3>Scenario 實際作用</h3>
+          <pre id="copiedCommand"></pre>
+        </section>
 
-        <table class="scenario-table">
-          <thead>
-            <tr>
-              <th>Scenario</th>
-              <th>API 回傳行為</th>
-              <th>主要用途</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>normal</code></td>
-              <td>回傳合法 payload，包含 <code>total</code>，數值會微幅變動。</td>
-              <td>測試一般正常資料讀取。</td>
-            </tr>
-            <tr>
-              <td><code>no-total</code></td>
-              <td>回傳合法 payload，但不包含 <code>total</code>。</td>
-              <td>測試主專案是否會用 office + residential 自動加總。</td>
-            </tr>
-            <tr>
-              <td><code>http-500</code></td>
-              <td>回傳 HTTP 500。</td>
-              <td>測試 HTTP 錯誤時的 fallback。</td>
-            </tr>
-            <tr>
-              <td><code>invalid-json</code></td>
-              <td>回傳故意損壞的 JSON 字串。</td>
-              <td>測試 JSON parse error 時的 fallback。</td>
-            </tr>
-            <tr>
-              <td><code>invalid-schema</code></td>
-              <td>回傳合法 JSON，但欄位缺漏或型別錯誤。</td>
-              <td>測試 validation error 時的 fallback。</td>
-            </tr>
-            <tr>
-              <td><code>timeout</code></td>
-              <td>延遲回應，預設至少 10 秒。</td>
-              <td>測試 timeout fallback。</td>
-            </tr>
-            <tr>
-              <td><code>custom</code></td>
-              <td>回傳 Payload Editor 中按下 <strong>Use Edited Payload</strong> 後儲存的內容。</td>
-              <td>測試真實廠商 API 格式或特殊資料格式。</td>
-            </tr>
-          </tbody>
-        </table>
+        <section class="card">
+          <h2>操作說明</h2>
 
-        <h3>Query String 覆蓋規則</h3>
+          <ol class="guide-list">
+            <li>先設定 Host、Port、API Path、延遲毫秒與情境。</li>
+            <li>透過啟動、停止、重新啟動來控制 mock API server。</li>
+            <li>可從目前 URL 預覽實際測試端點。</li>
+            <li>需要時可編輯 payload JSON，並套用到 custom 情境。</li>
+            <li>最近的 API 請求會顯示在 Request Log。</li>
+          </ol>
 
-        <p class="muted">
-          如果 URL 有指定 <code>?scenario=xxx</code>，會優先使用 URL 指定的 scenario。
-          如果 URL 沒有指定 scenario，才會使用 UI 下拉選單目前選擇的 scenario。
-        </p>
+          <h3>情境說明</h3>
+          <table class="scenario-table">
+            <thead>
+              <tr>
+                <th>情境</th>
+                <th>行為</th>
+                <th>用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>normal</code></td>
+                <td>回傳正常的 energy payload。</td>
+                <td>基本成功路徑測試。</td>
+              </tr>
+              <tr>
+                <td><code>no-total</code></td>
+                <td>移除 payload 中的 <code>total</code> 節點。</td>
+                <td>測試 aggregate 資料缺失時的 client fallback。</td>
+              </tr>
+              <tr>
+                <td><code>http-500</code></td>
+                <td>回傳 HTTP 500。</td>
+                <td>驗證錯誤處理流程。</td>
+              </tr>
+              <tr>
+                <td><code>invalid-json</code></td>
+                <td>回傳格式損壞的 JSON。</td>
+                <td>測試 JSON parser 失敗情境。</td>
+              </tr>
+              <tr>
+                <td><code>invalid-schema</code></td>
+                <td>回傳欄位型別錯誤或欄位缺漏的 JSON。</td>
+                <td>測試 schema 驗證失敗情境。</td>
+              </tr>
+              <tr>
+                <td><code>timeout</code></td>
+                <td>延遲回應以模擬 timeout 行為。</td>
+                <td>驗證 timeout 處理流程。</td>
+              </tr>
+              <tr>
+                <td><code>custom</code></td>
+                <td>回傳目前 Payload 編輯器中的內容。</td>
+                <td>測試自訂 API 回應內容。</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <pre>http://127.0.0.1:3101/api/energy
+          <h3>Query String 覆蓋規則</h3>
+          <p class="muted">
+            請求可透過 <code>?scenario=...</code> 覆蓋目前 UI 的情境設定；若未指定，則使用 UI 目前選擇的情境。
+          </p>
+
+          <pre>http://127.0.0.1:3101/api/energy
 http://127.0.0.1:3101/api/energy?scenario=http-500
 http://127.0.0.1:3101/api/energy?scenario=custom</pre>
-      </section>
+        </section>
 
-      <section class="card full-width">
-        <div class="section-title-row">
-          <div>
-            <h2>Request Log</h2>
-            <p class="muted">最多保留最近 100 筆請求。</p>
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Request Log</h2>
+              <p class="muted">保留最近 100 筆 API 請求。</p>
+            </div>
+            <button id="clearLogsButton" class="secondary">清除 Logs</button>
           </div>
-          <button id="clearLogsButton" class="secondary">Clear Logs</button>
-        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Method</th>
-              <th>Path</th>
-              <th>Scenario</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="logTableBody">
-            <tr>
-              <td colspan="5" class="empty">No request logs.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </main>
+          <table>
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>方法</th>
+                <th>路徑</th>
+                <th>情境</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="logTableBody">
+              <tr>
+                <td colspan="5" class="empty">目前沒有請求記錄。</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </section>
+
+    <section id="modbusPanel" class="mode-panel" data-mode-panel="modbus">
+      <main class="layout">
+        <section class="card">
+          <h2>Modbus Server 控制</h2>
+
+          <div class="grid">
+            <label>
+              Host
+              <input id="modbusHostInput" value="127.0.0.1" />
+            </label>
+
+            <label>
+              Port
+              <input id="modbusPortInput" type="number" value="1502" />
+            </label>
+
+            <label class="full">
+              Unit ID / Slave ID
+              <input id="modbusUnitIdInput" type="number" value="1" />
+            </label>
+          </div>
+
+          <p class="muted badge-warning">Port 502 可能需要 administrator/root 權限。建議本機測試使用 1502。</p>
+
+          <div class="button-row">
+            <button id="modbusStartButton">啟動 Modbus Server</button>
+            <button id="modbusStopButton" class="secondary">停止 Modbus Server</button>
+            <button id="modbusRestartButton" class="secondary">重新啟動 Modbus Server</button>
+          </div>
+
+          <div class="info-box">
+            <div class="info-row">
+              <span class="info-label">狀態</span>
+              <span id="modbusServerStatus" class="badge badge-stopped status-stopped">已停止</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">端點</span>
+              <code id="modbusEndpoint">127.0.0.1:1502</code>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Unit ID</span>
+              <code id="modbusCurrentUnitId">1</code>
+            </div>
+          </div>
+
+          <div id="modbusMessageBox" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>Register 產生器</h2>
+
+          <div class="grid">
+            <label class="full">
+              Register Type
+              <select id="modbusRegisterType">
+                <option value="coil" disabled>Coil 0x - R3</option>
+                <option value="discrete" disabled>Discrete Input 1x - R3</option>
+                <option value="inputreg" disabled>Input Register 3x - R3</option>
+                <option value="holdingreg" selected>Holding Register 4x</option>
+              </select>
+            </label>
+
+            <label>
+              起始位址
+              <input id="modbusStartAddressInput" type="number" value="0" />
+            </label>
+
+            <label>
+              筆數
+              <input id="modbusCountInput" type="number" value="3" />
+            </label>
+
+            <label>
+              Type
+              <select id="modbusValueType">
+                <option value="short">short</option>
+                <option value="float">float</option>
+              </select>
+            </label>
+
+            <label>
+              Word Order
+              <select id="modbusWordOrder">
+                <option value="HL">HL</option>
+                <option value="LH">LH</option>
+              </select>
+            </label>
+
+            <label class="full">
+              初始值
+              <input id="modbusInitialValueInput" value="100" />
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="generateRegistersButton">產生 Registers</button>
+          </div>
+        </section>
+
+        <section class="card full-width">
+          <h2>Register 表格</h2>
+
+          <table class="modbus-table">
+            <thead>
+              <tr>
+                <th>Enabled</th>
+                <th>Reg Type</th>
+                <th>Address</th>
+                <th>Display</th>
+                <th>Hex</th>
+                <th>Value</th>
+                <th>Type</th>
+                <th>Word Order</th>
+                <th>Action</th>
+                <th>套用</th>
+              </tr>
+            </thead>
+            <tbody id="modbusPointTableBody">
+              <tr>
+                <td colspan="10" class="empty">尚未產生任何 registers。</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Modbus Request Log</h2>
+              <p class="muted">顯示最近 100 筆 Modbus TCP 請求。</p>
+            </div>
+            <button id="clearModbusLogsButton" class="secondary">清除 Modbus Logs</button>
+          </div>
+
+          <table class="modbus-log-table">
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>Client</th>
+                <th>Unit ID</th>
+                <th>功能碼</th>
+                <th>動作</th>
+                <th>位址</th>
+                <th>數量</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="modbusLogTableBody">
+              <tr>
+                <td colspan="8" class="empty">目前沒有 Modbus 請求記錄。</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card full-width">
+          <h2>R3 路線圖 / 尚未支援功能</h2>
+          <p class="muted">
+            R3 將加入 coil / discrete input / input register、更多資料型別，以及更多 actions。
+          </p>
+        </section>
+      </main>
+    </section>
+
+    <section id="bridgePanel" class="mode-panel" data-mode-panel="bridge">
+      <main class="layout">
+        <section class="placeholder-card">
+          <h2>Modbus 對 API 橋接</h2>
+          <p class="muted">
+            此模式在 R2 仍為 placeholder，會在 Modbus TCP 模擬器穩定後再實作橋接行為。
+          </p>
+        </section>
+
+        <section class="placeholder-card">
+          <h2>橋接概念</h2>
+          <pre class="flow-diagram">Modbus Register Table
+        -> Mapping Rules
+        -> HTTP API Payload
+        -> Frontend / BMS API Client</pre>
+        </section>
+
+        <section class="placeholder-card">
+          <h2>後續規劃</h2>
+          <ul class="feature-list">
+            <li>從 Modbus register table 讀取資料。</li>
+            <li>將 register 對應到 JSON path。</li>
+            <li>產生 HTTP API response payload。</li>
+            <li>提供固定的 BMS energy mapping 預設。</li>
+            <li>延伸成通用 JSON mapper。</li>
+          </ul>
+        </section>
+
+        <section class="placeholder-card full-width">
+          <h2>狀態</h2>
+          <p>R2 尚未實作。</p>
+          <p>下一步會在 Modbus TCP 模擬器穩定後加入 bridge mapping。</p>
+        </section>
+      </main>
+    </section>
   </div>
 
   <script type="module" src="/src/renderer.js"></script>

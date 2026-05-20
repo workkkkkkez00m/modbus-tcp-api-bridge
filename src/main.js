@@ -2,12 +2,14 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { MockMeterApiServer } from './mockMeterApiServer.js';
+import { MockModbusTcpServer } from './mockModbusTcpServer.js';
 
 if (started) {
   app.quit();
 }
 
 const mockServer = new MockMeterApiServer();
+const modbusServer = new MockModbusTcpServer();
 
 function getAppIconPath() {
   const iconFileName =
@@ -79,6 +81,42 @@ function registerIpc() {
     mockServer.clearLogs();
     return mockServer.getLogs();
   });
+
+  ipcMain.handle('modbus:start-server', async (_event, config) => {
+    return modbusServer.start(config);
+  });
+
+  ipcMain.handle('modbus:stop-server', async () => {
+    return modbusServer.stop();
+  });
+
+  ipcMain.handle('modbus:restart-server', async (_event, config) => {
+    return modbusServer.restart(config);
+  });
+
+  ipcMain.handle('modbus:get-status', async () => {
+    return modbusServer.getStatus();
+  });
+
+  ipcMain.handle('modbus:generate-registers', async (_event, config) => {
+    return modbusServer.generateRegisters(config);
+  });
+
+  ipcMain.handle('modbus:update-point', async (_event, point) => {
+    return modbusServer.updatePoint(point);
+  });
+
+  ipcMain.handle('modbus:get-points', async () => {
+    return modbusServer.getPoints();
+  });
+
+  ipcMain.handle('modbus:get-logs', async () => {
+    return modbusServer.getLogs();
+  });
+
+  ipcMain.handle('modbus:clear-logs', async () => {
+    return modbusServer.clearLogs();
+  });
 }
 
 app.whenReady().then(() => {
@@ -97,6 +135,12 @@ app.on('before-quit', async () => {
     await mockServer.stop();
   } catch (error) {
     console.error('Failed to stop mock server:', error);
+  }
+
+  try {
+    await modbusServer.stop();
+  } catch (error) {
+    console.error('Failed to stop Modbus server:', error);
   }
 });
 

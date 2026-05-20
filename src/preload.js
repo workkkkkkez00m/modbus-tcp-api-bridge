@@ -13,3 +13,15 @@ contextBridge.exposeInMainWorld('mockMeterApi', {
   getLogs: () => ipcRenderer.invoke('mock-meter-api:get-logs'),
   clearLogs: () => ipcRenderer.invoke('mock-meter-api:clear-logs'),
 });
+
+contextBridge.exposeInMainWorld('modbusSimulator', {
+  startServer: (config) => ipcRenderer.invoke('modbus:start-server', config),
+  stopServer: () => ipcRenderer.invoke('modbus:stop-server'),
+  restartServer: (config) => ipcRenderer.invoke('modbus:restart-server', config),
+  getStatus: () => ipcRenderer.invoke('modbus:get-status'),
+  generateRegisters: (config) => ipcRenderer.invoke('modbus:generate-registers', config),
+  updatePoint: (point) => ipcRenderer.invoke('modbus:update-point', point),
+  getPoints: () => ipcRenderer.invoke('modbus:get-points'),
+  getLogs: () => ipcRenderer.invoke('modbus:get-logs'),
+  clearLogs: () => ipcRenderer.invoke('modbus:clear-logs'),
+});
