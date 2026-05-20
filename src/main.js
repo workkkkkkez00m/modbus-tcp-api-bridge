@@ -9,12 +9,17 @@ if (started) {
 
 const mockServer = new MockMeterApiServer();
 
+function getAppIconPath() {
+  return path.join(app.getAppPath(), 'src', 'public', 'meter-icon.ico');
+}
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1180,
     height: 820,
     minWidth: 980,
     minHeight: 680,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
