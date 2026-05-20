@@ -154,8 +154,17 @@ function ensureModbusUndefinedBooleanModeField() {
   }
 
   const label = document.createElement('label');
-  label.className = 'full';
-  label.textContent = '未建立布林位址處理模式';
+  label.className = 'full has-tooltip stacked-field';
+  label.dataset.tooltip = '若 BMS 一次讀取較大範圍，且範圍內包含未建立的 Coil / Discrete Input，可使用 Compatibility 模式避免整段讀取失敗。';
+
+  const labelText = document.createElement('span');
+  labelText.className = 'label-text';
+  labelText.textContent = '未建立布林位址處理模式';
+  const indicator = document.createElement('span');
+  indicator.className = 'tooltip-indicator';
+  indicator.textContent = '?';
+  indicator.setAttribute('aria-hidden', 'true');
+  labelText.appendChild(indicator);
 
   select = document.createElement('select');
   select.id = 'modbusUndefinedBooleanModeSelect';
@@ -163,14 +172,7 @@ function ensureModbusUndefinedBooleanModeField() {
     <option value="compatibility-false" selected>Compatibility：未建立位址回 false / 0</option>
     <option value="strict">Strict：未建立位址回 exception</option>
   `;
-  label.append('\n');
-  label.append(select);
-
-  const helpText = document.createElement('p');
-  helpText.className = 'help-text';
-  helpText.textContent = '若 BMS 一次讀取較大範圍，且範圍內包含未建立的 Coil / Discrete Input，可使用 Compatibility 模式避免整段讀取失敗。';
-
-  buttonRow.before(helpText);
+  label.append(labelText, '\n', select);
   buttonRow.before(label);
 
   return select;
@@ -188,8 +190,17 @@ function ensureModbusFeedbackMappingModeField() {
   }
 
   const label = document.createElement('label');
-  label.className = 'full';
-  label.textContent = '控制回饋映射模式 Feedback Mapping Mode';
+  label.className = 'full has-tooltip stacked-field';
+  label.dataset.tooltip = '啟用後，外部 BMS 寫入 Coil 控制點時，mock server 會自動更新同 offset 的 Discrete Input，模擬 PLC / DDC 狀態回饋。';
+
+  const labelText = document.createElement('span');
+  labelText.className = 'label-text';
+  labelText.textContent = '控制回饋映射模式 Feedback Mapping Mode';
+  const indicator = document.createElement('span');
+  indicator.className = 'tooltip-indicator';
+  indicator.textContent = '?';
+  indicator.setAttribute('aria-hidden', 'true');
+  labelText.appendChild(indicator);
 
   select = document.createElement('select');
   select.id = 'modbusFeedbackMappingModeSelect';
@@ -197,14 +208,7 @@ function ensureModbusFeedbackMappingModeField() {
     <option value="disabled" selected>Disabled：不自動回饋</option>
     <option value="coil-to-discrete-same-address">Coil write → Discrete Input same address</option>
   `;
-  label.append('\n');
-  label.append(select);
-
-  const helpText = document.createElement('p');
-  helpText.className = 'help-text';
-  helpText.textContent = '啟用後，外部 BMS 寫入 Coil 控制點時，mock server 會自動更新同 offset 的 Discrete Input，模擬 PLC / DDC 狀態回饋。';
-
-  buttonRow.before(helpText);
+  label.append(labelText, '\n', select);
   buttonRow.before(label);
 
   return select;
@@ -650,11 +654,16 @@ function syncModbusGeneratorHint() {
   const span = MODBUS_TYPE_WORD_COUNT[type] || 1;
   const regTypeLabel = MODBUS_REG_TYPES[regType]?.label || regType;
 
-  modbusElements.generatorHint.textContent = [
+  const hintText = [
     `${regTypeLabel} 的 Address 使用 Modbus protocol address，從 0 開始。`,
     `Display Address 僅供對照點表。`,
     `${getTypeLabel(type)} 每個點位需要 ${span} 個 ${regType === 'coil' || regType === 'discreteInput' ? 'bit 位址' : 'register 位址'}。`,
   ].join(' ');
+
+  if (modbusElements.generatorHint) {
+    modbusElements.generatorHint.dataset.tooltip = hintText;
+    modbusElements.generatorHint.setAttribute('aria-label', hintText);
+  }
 }
 
 function renderModbusStatus(status, options = {}) {

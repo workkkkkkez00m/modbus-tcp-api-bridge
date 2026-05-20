@@ -87,6 +87,12 @@ label {
   font-weight: 650;
 }
 
+.label-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 pre {
   margin: 0;
   overflow: auto;
@@ -212,6 +218,14 @@ th {
 
 .full {
   grid-column: 1 / -1;
+}
+
+#modbusPanel .grid + .stacked-field {
+  margin-top: 12px;
+}
+
+#modbusPanel .stacked-field + .stacked-field {
+  margin-top: 12px;
 }
 
 .button-row {
@@ -403,6 +417,80 @@ th {
   color: #cbd5e1;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.has-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.has-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: max-content;
+  max-width: 340px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #2a3a52;
+  border-radius: 10px;
+  background: #14203a;
+  color: #e5e7eb;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.55);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  white-space: normal;
+}
+
+.has-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: calc(100% + 2px);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent #14203a transparent;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.has-tooltip:hover::after,
+.has-tooltip:focus-within::after,
+.has-tooltip:focus::after,
+.has-tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.has-tooltip:hover::before,
+.has-tooltip:focus-within::before,
+.has-tooltip:focus::before,
+.has-tooltip:focus-visible::before {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tooltip-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #111827;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .config-hint p {
