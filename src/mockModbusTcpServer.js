@@ -118,6 +118,12 @@ function normalizeUndefinedBooleanMode(mode) {
   return mode === 'strict' ? 'strict' : 'compatibility-false';
 }
 
+function normalizeFeedbackMappingMode(mode) {
+  return mode === 'coil-to-discrete-same-address'
+    ? 'coil-to-discrete-same-address'
+    : 'disabled';
+}
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -297,6 +303,7 @@ class MockModbusTcpServer {
       rawHoldingRegisters: {},
       logs: [],
       requestAddressBaseMode: 'standard-0-based',
+      feedbackMappingMode: 'disabled',
     };
   }
 
@@ -314,6 +321,7 @@ class MockModbusTcpServer {
         unitId: this.state.unitId,
         requestAddressBaseMode: this.state.requestAddressBaseMode,
         undefinedBooleanMode: this.state.undefinedBooleanMode,
+        feedbackMappingMode: this.state.feedbackMappingMode,
       },
     };
   }
@@ -513,6 +521,14 @@ class MockModbusTcpServer {
     point.value = value;
 
     this.writePointRawData(point);
+
+    if (point.regType === 'coil') {
+      this.applyCoilFeedbackMapping({
+        address: point.address,
+        value: point.value,
+        source: 'manual-point-update',
+      });
+    }
 
     return {
       status: this.getStatus(),
@@ -908,6 +924,11 @@ class MockModbusTcpServer {
 
     this.getRawMap('coil')[String(address)] = writeValue;
     this.syncPointsFromRawRange('coil', address, 1);
+    const feedbackResult = this.applyCoilFeedbackMapping({
+      address,
+      value: writeValue,
+      source: 'fc05',
+    });
     const rawValueAfterWrite = Boolean(this.getRawMap('coil')[String(address)]);
 
     this.addLog({
@@ -927,6 +948,15 @@ class MockModbusTcpServer {
       referenceAddress,
       writeValue,
       rawValueAfterWrite,
+      feedbackMappingMode: feedbackResult.feedbackMappingMode,
+      feedbackApplied: feedbackResult.feedbackApplied,
+      feedbackTargetRegType: feedbackResult.feedbackTargetRegType,
+      feedbackTargetAddress: feedbackResult.feedbackTargetAddress,
+      feedbackTargetReferenceAddress: feedbackResult.feedbackTargetReferenceAddress,
+      feedbackValue: feedbackResult.feedbackValue,
+      feedbackMessage: feedbackResult.feedbackApplied
+        ? `FC05 寫入 Coil ${referenceAddress}=${writeValue}；已同步 Discrete Input ${feedbackResult.feedbackTargetReferenceAddress}=${feedbackResult.feedbackValue}`
+        : 'FC05 寫入 Coil 成功；控制回饋映射未啟用',
       address,
       quantity: 1,
       requestAddressResolutionNote: resolutionNote,
@@ -993,20 +1023,45 @@ class MockModbusTcpServer {
 
     const rawMap = this.getRawMap('coil');
     const writeValues = [];
+    const feedbackResults = [];
 
     for (let index = 0; index < quantity; index += 1) {
       const byteIndex = Math.floor(index / 8);
       const bitIndex = index % 8;
       const bitValue = (pdu.readUInt8(6 + byteIndex) >> bitIndex) & 0x01;
       const value = Boolean(bitValue);
+      const coilAddress = startAddress + index;
       writeValues.push(value);
-      rawMap[String(startAddress + index)] = value;
+      rawMap[String(coilAddress)] = value;
+      feedbackResults.push(this.applyCoilFeedbackMapping({
+        address: coilAddress,
+        value,
+        source: 'fc15',
+      }));
     }
 
     this.syncPointsFromRawRange('coil', startAddress, quantity);
     const rawValuesAfterWrite = writeValues.map((_, index) => Boolean(
       rawMap[String(startAddress + index)]
     ));
+    const appliedFeedbackResults = feedbackResults.filter((result) => result.feedbackApplied);
+    const feedbackSummary = appliedFeedbackResults.length
+      ? {
+        feedbackMappingMode: feedbackResults[0]?.feedbackMappingMode ?? this.state.feedbackMappingMode,
+        feedbackApplied: true,
+        feedbackTargetRegType: 'discreteInput',
+        feedbackTargetAddress: `${appliedFeedbackResults[0].feedbackTargetAddress} ~ ${appliedFeedbackResults[appliedFeedbackResults.length - 1].feedbackTargetAddress}`,
+        feedbackTargetReferenceAddress: `${appliedFeedbackResults[0].feedbackTargetReferenceAddress} ~ ${appliedFeedbackResults[appliedFeedbackResults.length - 1].feedbackTargetReferenceAddress}`,
+        feedbackValue: appliedFeedbackResults.map((result) => result.feedbackValue),
+      }
+      : {
+        feedbackMappingMode: feedbackResults[0]?.feedbackMappingMode ?? this.state.feedbackMappingMode,
+        feedbackApplied: false,
+        feedbackTargetRegType: 'discreteInput',
+        feedbackTargetAddress: null,
+        feedbackTargetReferenceAddress: null,
+        feedbackValue: null,
+      };
 
     const responsePdu = Buffer.alloc(5);
     responsePdu.writeUInt8(0x0F, 0);
@@ -1027,6 +1082,15 @@ class MockModbusTcpServer {
       action: '寫入',
       writeValues,
       rawValuesAfterWrite,
+      feedbackMappingMode: feedbackSummary.feedbackMappingMode,
+      feedbackApplied: feedbackSummary.feedbackApplied,
+      feedbackTargetRegType: feedbackSummary.feedbackTargetRegType,
+      feedbackTargetAddress: feedbackSummary.feedbackTargetAddress,
+      feedbackTargetReferenceAddress: feedbackSummary.feedbackTargetReferenceAddress,
+      feedbackValue: feedbackSummary.feedbackValue,
+      feedbackMessage: feedbackSummary.feedbackApplied
+        ? `FC15 寫入多個 Coil；已同步 Discrete Input ${feedbackSummary.feedbackTargetReferenceAddress}`
+        : 'FC15 寫入多個 Coil 成功；控制回饋映射未啟用',
       address: startAddress,
       quantity,
       requestAddressResolutionNote: resolutionNote,
@@ -1128,6 +1192,9 @@ class MockModbusTcpServer {
     const undefinedBooleanMode = normalizeUndefinedBooleanMode(
       config.undefinedBooleanMode ?? this.state.undefinedBooleanMode
     );
+    const feedbackMappingMode = normalizeFeedbackMappingMode(
+      config.feedbackMappingMode ?? this.state.feedbackMappingMode
+    );
 
     return {
       host,
@@ -1135,6 +1202,7 @@ class MockModbusTcpServer {
       unitId,
       requestAddressBaseMode,
       undefinedBooleanMode,
+      feedbackMappingMode,
     };
   }
 
@@ -1350,6 +1418,33 @@ class MockModbusTcpServer {
         wordOrder: point.wordOrder,
       });
     }
+  }
+
+  applyCoilFeedbackMapping({ address, value, source }) {
+    const feedbackMappingMode = normalizeFeedbackMappingMode(this.state.feedbackMappingMode);
+    const feedbackValue = Boolean(value);
+    const feedbackTargetReferenceAddress = toReferenceAddress('discreteInput', address);
+    const result = {
+      source,
+      feedbackMappingMode,
+      feedbackApplied: false,
+      feedbackTargetRegType: 'discreteInput',
+      feedbackTargetAddress: address,
+      feedbackTargetReferenceAddress,
+      feedbackValue,
+    };
+
+    if (feedbackMappingMode !== 'coil-to-discrete-same-address') {
+      return result;
+    }
+
+    this.getRawMap('discreteInput')[String(address)] = feedbackValue;
+    this.syncPointsFromRawRange('discreteInput', address, 1);
+
+    return {
+      ...result,
+      feedbackApplied: true,
+    };
   }
 
   applyPointActionsForRange(regType, startAddress, quantity) {

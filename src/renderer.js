@@ -102,6 +102,7 @@ const modbusElements = {
   portInput: document.querySelector('#modbusPortInput'),
   unitIdInput: document.querySelector('#modbusUnitIdInput'),
   requestAddressBaseModeSelect: document.querySelector('#modbusRequestAddressBaseModeSelect'),
+  feedbackMappingModeSelect: document.querySelector('#modbusFeedbackMappingModeSelect'),
   undefinedBooleanModeSelect: document.querySelector('#modbusPanel #modbusUndefinedBooleanModeSelect'),
   startButton: document.querySelector('#modbusStartButton'),
   stopButton: document.querySelector('#modbusStopButton'),
@@ -175,6 +176,40 @@ function ensureModbusUndefinedBooleanModeField() {
   return select;
 }
 
+function ensureModbusFeedbackMappingModeField() {
+  const buttonRow = document.querySelector('#modbusPanel .button-row');
+  if (!buttonRow) {
+    return document.querySelector('#modbusPanel #modbusFeedbackMappingModeSelect');
+  }
+
+  let select = document.querySelector('#modbusPanel #modbusFeedbackMappingModeSelect');
+  if (select) {
+    return select;
+  }
+
+  const label = document.createElement('label');
+  label.className = 'full';
+  label.textContent = '控制回饋映射模式 Feedback Mapping Mode';
+
+  select = document.createElement('select');
+  select.id = 'modbusFeedbackMappingModeSelect';
+  select.innerHTML = `
+    <option value="disabled" selected>Disabled：不自動回饋</option>
+    <option value="coil-to-discrete-same-address">Coil write → Discrete Input same address</option>
+  `;
+  label.append('\n');
+  label.append(select);
+
+  const helpText = document.createElement('p');
+  helpText.className = 'help-text';
+  helpText.textContent = '啟用後，外部 BMS 寫入 Coil 控制點時，mock server 會自動更新同 offset 的 Discrete Input，模擬 PLC / DDC 狀態回饋。';
+
+  buttonRow.before(helpText);
+  buttonRow.before(label);
+
+  return select;
+}
+
 function readIntOrFallback(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -218,6 +253,7 @@ function getModbusConfigFromForm() {
     port: readIntOrFallback(modbusElements.portInput.value, 1502),
     unitId: readIntOrFallback(modbusElements.unitIdInput.value, 1),
     requestAddressBaseMode: modbusElements.requestAddressBaseModeSelect?.value || 'standard-0-based',
+    feedbackMappingMode: modbusElements.feedbackMappingModeSelect?.value || 'disabled',
     undefinedBooleanMode: modbusElements.undefinedBooleanModeSelect?.value || 'compatibility-false',
   };
 }
@@ -512,7 +548,7 @@ function formatModbusLogExceptionInfo(log) {
 }
 
 function formatModbusLogMessage(log) {
-  const baseMessage = log.message ?? '-';
+  const baseMessage = log.feedbackMessage ?? log.message ?? '-';
   const parts = [baseMessage];
 
   if (log.actionApplied !== undefined) {
@@ -640,6 +676,10 @@ function renderModbusStatus(status, options = {}) {
     if (modbusElements.requestAddressBaseModeSelect) {
       modbusElements.requestAddressBaseModeSelect.value =
         status.config.requestAddressBaseMode || 'standard-0-based';
+    }
+    if (modbusElements.feedbackMappingModeSelect) {
+      modbusElements.feedbackMappingModeSelect.value =
+        status.config.feedbackMappingMode || 'disabled';
     }
     if (modbusElements.undefinedBooleanModeSelect) {
       modbusElements.undefinedBooleanModeSelect.value =
@@ -1044,6 +1084,7 @@ modbusElements.pointTableBody.addEventListener('click', handlePointTableClick);
 async function init() {
   initModeTabs();
   updateUrlPreview();
+  modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();
   modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
   syncModbusGeneratorTypeOptions();
 

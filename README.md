@@ -84,6 +84,24 @@ Display address：
 - `long` 以 64-bit signed integer 編解碼，UI 建議輸入整數字串；超出 JavaScript safe integer 範圍時，action 設定請避免依賴高精度數值運算。
 - R4 將新增 Modbus → API Bridge。
 
+### 控制回饋映射模式 Feedback Mapping Mode
+
+此模式用於模擬 PLC / DDC 收到 Coil 控制命令後，將狀態回饋到 Discrete Input。
+
+- `Disabled`：不自動回饋
+- `Coil write → Discrete Input same address`：寫入 Coil 後，同步同 offset 的 Discrete Input
+
+範例：
+
+```text
+Coil 000001 = true
+=> Discrete Input 100001 = true
+```
+
+注意：
+此功能不是 Coil / Discrete Input mirror。
+它只在 Coil 寫入或 Coil 手動套用時，單向更新 Discrete Input。
+
 ## Roadmap
 
 ### R1
