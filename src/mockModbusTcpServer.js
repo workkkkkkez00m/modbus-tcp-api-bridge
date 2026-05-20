@@ -228,6 +228,10 @@ function formatBitsDisplay(bitValue) {
   return bitValue ? 'true / 1' : 'false / 0';
 }
 
+function formatByteHex(value) {
+  return `0x${value.toString(16).padStart(2, '0')}`;
+}
+
 function padFunctionCode(functionCode) {
   return `FC${functionCode.toString(16).toUpperCase().padStart(2, '0')}`;
 }
@@ -628,13 +632,18 @@ class MockModbusTcpServer {
       throw new ModbusRequestError('讀取 bit 數量必須介於 1 到 2000。', 0x03);
     }
 
-    this.applyPointActionsForRange(regType, startAddress, quantity);
+    if (regType === 'coil') {
+      this.syncPointsFromRawRange('coil', startAddress, quantity);
+    }
+
+    const actionPointIds = this.applyPointActionsForRange(regType, startAddress, quantity);
 
     const rawMap = this.getRawMap(regType);
     const byteCount = Math.ceil(quantity / 8);
     const responsePdu = Buffer.alloc(2 + byteCount);
     responsePdu.writeUInt8(pdu.readUInt8(0), 0);
     responsePdu.writeUInt8(byteCount, 1);
+    const readValues = [];
 
     for (let index = 0; index < quantity; index += 1) {
       const address = startAddress + index;
@@ -644,12 +653,28 @@ class MockModbusTcpServer {
         throw new ModbusRequestError('位址超出範圍。', 0x02);
       }
 
-      if (rawMap[key]) {
+      const value = Boolean(rawMap[key]);
+      readValues.push(value);
+
+      if (value) {
         const byteIndex = Math.floor(index / 8);
         const bitIndex = index % 8;
         responsePdu[2 + byteIndex] |= (1 << bitIndex);
       }
     }
+
+    const responseBytes = Array.from(responsePdu.subarray(2)).map(formatByteHex);
+    const actionLogFields = regType === 'coil'
+      ? {
+          actionApplied: actionPointIds.length > 0,
+          actionPointIds,
+        }
+      : {};
+    const requestAddress = quantity === 1 ? requestStartAddress : null;
+    const resolvedInternalAddress = quantity === 1 ? startAddress : null;
+    const referenceAddress = quantity === 1
+      ? toReferenceAddress(regType, startAddress)
+      : null;
 
     this.addLog({
       client: getClientLabel(socket),
@@ -663,11 +688,19 @@ class MockModbusTcpServer {
         this.state.requestAddressBaseMode
       ),
       action: '讀取',
+      requestAddress,
+      resolvedInternalAddress,
+      referenceAddress,
       address: startAddress,
       quantity,
+      readValues,
+      responseBytes,
+      ...actionLogFields,
       requestAddressResolutionNote: resolutionNote,
       status: '成功',
-      message: regType === 'coil' ? '讀取線圈成功' : '讀取離散輸入成功',
+      message: regType === 'coil'
+        ? '讀取線圈成功'
+        : '讀取離散輸入成功，注意：此功能碼讀取的是 Discrete Input，不是 Coil。',
     });
 
     return this.buildResponse(transactionId, unitId, responsePdu);
@@ -743,8 +776,12 @@ class MockModbusTcpServer {
       throw new ModbusRequestError('線圈寫入值只接受 0xFF00 或 0x0000。', 0x03);
     }
 
-    this.getRawMap('coil')[String(address)] = rawValue === 0xFF00;
+    const writeValue = rawValue === 0xFF00;
+    const referenceAddress = toReferenceAddress('coil', address);
+
+    this.getRawMap('coil')[String(address)] = writeValue;
     this.syncPointsFromRawRange('coil', address, 1);
+    const rawValueAfterWrite = Boolean(this.getRawMap('coil')[String(address)]);
 
     this.addLog({
       client: getClientLabel(socket),
@@ -758,6 +795,11 @@ class MockModbusTcpServer {
         this.state.requestAddressBaseMode
       ),
       action: '寫入',
+      requestAddress,
+      resolvedInternalAddress: address,
+      referenceAddress,
+      writeValue,
+      rawValueAfterWrite,
       address,
       quantity: 1,
       requestAddressResolutionNote: resolutionNote,
@@ -823,15 +865,21 @@ class MockModbusTcpServer {
     }
 
     const rawMap = this.getRawMap('coil');
+    const writeValues = [];
 
     for (let index = 0; index < quantity; index += 1) {
       const byteIndex = Math.floor(index / 8);
       const bitIndex = index % 8;
       const bitValue = (pdu.readUInt8(6 + byteIndex) >> bitIndex) & 0x01;
-      rawMap[String(startAddress + index)] = Boolean(bitValue);
+      const value = Boolean(bitValue);
+      writeValues.push(value);
+      rawMap[String(startAddress + index)] = value;
     }
 
     this.syncPointsFromRawRange('coil', startAddress, quantity);
+    const rawValuesAfterWrite = writeValues.map((_, index) => Boolean(
+      rawMap[String(startAddress + index)]
+    ));
 
     const responsePdu = Buffer.alloc(5);
     responsePdu.writeUInt8(0x0F, 0);
@@ -841,7 +889,7 @@ class MockModbusTcpServer {
     this.addLog({
       client: getClientLabel(socket),
       unitId,
-      functionCode: 'FC0F',
+      functionCode: 'FC15',
       regType: REG_TYPE_META.coil.label,
       ...buildRequestAddressLogFields(
         'coil',
@@ -850,11 +898,13 @@ class MockModbusTcpServer {
         this.state.requestAddressBaseMode
       ),
       action: '寫入',
+      writeValues,
+      rawValuesAfterWrite,
       address: startAddress,
       quantity,
       requestAddressResolutionNote: resolutionNote,
       status: '成功',
-      message: '寫入多筆線圈成功',
+      message: '寫入多個線圈成功',
     });
 
     return this.buildResponse(transactionId, unitId, responsePdu);
@@ -1172,6 +1222,8 @@ class MockModbusTcpServer {
   }
 
   applyPointActionsForRange(regType, startAddress, quantity) {
+    const actionPointIds = [];
+
     for (const point of this.state.points) {
       if (
         !point.enabled
@@ -1181,34 +1233,45 @@ class MockModbusTcpServer {
         continue;
       }
 
-      this.applyActionToPoint(point);
+      if (point.action === 'manual') {
+        continue;
+      }
+
+      if (this.applyActionToPoint(point)) {
+        actionPointIds.push(point.id);
+      }
     }
+
+    return actionPointIds;
   }
 
   applyActionToPoint(point) {
     switch (point.action) {
+      case 'manual':
+        return false;
       case 'random':
         point.value = this.buildRandomValue(point);
         this.writePointRawData(point);
-        return;
+        return true;
       case 'increment':
         point.value = this.buildIncrementValue(point);
         this.writePointRawData(point);
-        return;
+        return true;
       case 'toggle':
         point.value = this.buildToggleValue(point);
         this.writePointRawData(point);
-        return;
+        return true;
       case 'sine': {
         const nextValue = this.buildSineValue(point);
         if (nextValue !== undefined) {
           point.value = nextValue;
           this.writePointRawData(point);
+          return true;
         }
-        return;
+        return false;
       }
       default:
-        return;
+        return false;
     }
   }
 

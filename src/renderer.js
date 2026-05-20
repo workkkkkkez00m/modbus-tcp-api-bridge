@@ -71,7 +71,7 @@ const MODBUS_EMPTY_POINT_ROW = `
 
 const MODBUS_EMPTY_LOG_ROW = `
   <tr>
-    <td colspan="11" class="empty">目前沒有 Modbus Request Log。</td>
+    <td colspan="15" class="empty">目前沒有 Modbus Request Log。</td>
   </tr>
 `;
 
@@ -355,6 +355,10 @@ function formatModbusLogAddress(value) {
 }
 
 function formatModbusLogReference(log) {
+  if (log.referenceAddress != null) {
+    return String(log.referenceAddress);
+  }
+
   if (!log.referenceStartAddress) {
     return '-';
   }
@@ -364,6 +368,94 @@ function formatModbusLogReference(log) {
   }
 
   return `${log.referenceStartAddress} ~ ${log.referenceEndAddress}`;
+}
+
+function formatModbusLogRequest(log) {
+  if (log.requestAddress != null) {
+    return String(log.requestAddress);
+  }
+
+  if (log.requestStartAddress != null) {
+    return String(log.requestStartAddress);
+  }
+
+  return '-';
+}
+
+function formatModbusLogResolved(log) {
+  if (log.resolvedInternalAddress != null) {
+    return String(log.resolvedInternalAddress);
+  }
+
+  if (log.resolvedInternalStartAddress != null) {
+    return String(log.resolvedInternalStartAddress);
+  }
+
+  return '-';
+}
+
+function formatBooleanDisplay(value) {
+  return value ? 'true' : 'false';
+}
+
+function formatBooleanArray(values) {
+  return `[${values.map((value) => formatBooleanDisplay(value)).join(', ')}]`;
+}
+
+function formatModbusLogValueBits(log) {
+  const parts = [];
+
+  if (log.writeValue !== undefined) {
+    parts.push(`write: ${formatBooleanDisplay(log.writeValue)}`);
+  }
+
+  if (Array.isArray(log.writeValues)) {
+    parts.push(`write: ${formatBooleanArray(log.writeValues)}`);
+  }
+
+  if (Array.isArray(log.readValues)) {
+    parts.push(`read: ${formatBooleanArray(log.readValues)}`);
+  }
+
+  if (log.rawValueAfterWrite !== undefined) {
+    parts.push(`raw: ${formatBooleanDisplay(log.rawValueAfterWrite)}`);
+  }
+
+  if (Array.isArray(log.rawValuesAfterWrite)) {
+    parts.push(`raw: ${formatBooleanArray(log.rawValuesAfterWrite)}`);
+  }
+
+  return parts.length ? parts.join(' | ') : '-';
+}
+
+function formatModbusLogResponse(log) {
+  if (!Array.isArray(log.responseBytes) || !log.responseBytes.length) {
+    return '-';
+  }
+
+  return log.responseBytes.join(' ');
+}
+
+function formatModbusLogMessage(log) {
+  const baseMessage = log.message ?? '-';
+  const parts = [baseMessage];
+
+  if (log.actionApplied !== undefined) {
+    if (log.actionApplied) {
+      const ids = Array.isArray(log.actionPointIds) && log.actionPointIds.length
+        ? `：${log.actionPointIds.join(', ')}`
+        : '';
+      parts.push(`動作已更新${ids}`);
+    } else {
+      parts.push('動作未更新');
+    }
+  }
+
+  if (log.requestAddressResolutionNote) {
+    parts.push(log.requestAddressResolutionNote);
+  }
+
+  return parts.join('；');
 }
 
 function isBinaryLike(regType, type) {
@@ -547,13 +639,16 @@ function renderModbusLogs(logs) {
       <td>${escapeHtml(String(log.unitId))}</td>
       <td>${escapeHtml(log.functionCode)}</td>
       <td>${escapeHtml(log.regType ?? '-')}</td>
-      <td>${escapeHtml(formatModbusLogAddress(log.requestStartAddress))}</td>
-      <td>${escapeHtml(formatModbusLogAddress(log.resolvedInternalStartAddress))}</td>
+      <td>${escapeHtml(log.action ?? '-')}</td>
+      <td>${escapeHtml(formatModbusLogRequest(log))}</td>
+      <td>${escapeHtml(formatModbusLogResolved(log))}</td>
       <td>${escapeHtml(formatModbusLogReference(log))}</td>
-      <td>${escapeHtml(log.requestAddressBaseMode ?? 'standard-0-based')}</td>
       <td>${escapeHtml(formatModbusLogAddress(log.requestQuantity ?? log.quantity))}</td>
+      <td>${escapeHtml(formatModbusLogValueBits(log))}</td>
+      <td>${escapeHtml(formatModbusLogResponse(log))}</td>
+      <td>${escapeHtml(log.requestAddressBaseMode ?? 'standard-0-based')}</td>
       <td>${escapeHtml(log.status ?? '-')}</td>
-      <td>${escapeHtml(`${log.message ?? '-'}${log.requestAddressResolutionNote ? `；${log.requestAddressResolutionNote}` : ''}`)}</td>
+      <td>${escapeHtml(formatModbusLogMessage(log))}</td>
     </tr>
   `).join('');
 }
