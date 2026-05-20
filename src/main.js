@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { MockMeterApiServer } from './mockMeterApiServer.js';
@@ -11,10 +12,42 @@ if (started) {
 const mockServer = new MockMeterApiServer();
 const modbusServer = new MockModbusTcpServer();
 
-function getAppIconPath() {
+function resolveAppIconPath() {
   const iconFileName =
     process.platform === 'darwin' ? 'mac-icon.icns' : 'meter-icon.ico';
-  return path.join(app.getAppPath(), 'src', 'public', iconFileName);
+
+  const devPath = path.join(process.cwd(), 'src', 'public', iconFileName);
+  if (!app.isPackaged && fs.existsSync(devPath)) {
+    return devPath;
+  }
+
+  const appPath = path.join(app.getAppPath(), 'src', 'public', iconFileName);
+  if (fs.existsSync(appPath)) {
+    return appPath;
+  }
+
+  const resourcesPath = path.join(process.resourcesPath, iconFileName);
+  if (fs.existsSync(resourcesPath)) {
+    return resourcesPath;
+  }
+
+  return undefined;
+}
+
+function setDockIconIfNeeded() {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
+  const iconPath = resolveAppIconPath();
+  if (!iconPath) {
+    return;
+  }
+
+  const dockIcon = nativeImage.createFromPath(iconPath);
+  if (!dockIcon.isEmpty() && app.dock) {
+    app.dock.setIcon(dockIcon);
+  }
 }
 
 function createWindow() {
@@ -23,7 +56,7 @@ function createWindow() {
     height: 820,
     minWidth: 980,
     minHeight: 680,
-    icon: getAppIconPath(),
+    icon: resolveAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -121,6 +154,7 @@ function registerIpc() {
 
 app.whenReady().then(() => {
   registerIpc();
+  setDockIconIfNeeded();
   createWindow();
 
   app.on('activate', () => {
