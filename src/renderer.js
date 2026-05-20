@@ -1,7 +1,79 @@
 import './index.css';
+import { toReferenceAddress } from './modbusAddress.js';
 
 const MODE_STORAGE_KEY = 'bms-protocol-mock-lab.activeMode';
 const SUPPORTED_MODES = ['api', 'modbus', 'bridge'];
+
+const MODBUS_REG_TYPES = {
+  coil: {
+    label: '線圈 Coil 0x',
+    supportedTypes: ['binary'],
+    defaultType: 'binary',
+    displayBase: 1,
+  },
+  discreteInput: {
+    label: '離散輸入 Discrete Input 1x',
+    supportedTypes: ['binary'],
+    defaultType: 'binary',
+    displayBase: 10001,
+  },
+  inputRegister: {
+    label: '輸入暫存器 Input Register 3x',
+    supportedTypes: ['short', 'int', 'long', 'float', 'double', 'binary'],
+    defaultType: 'short',
+    displayBase: 30001,
+  },
+  holdingRegister: {
+    label: '保持暫存器 Holding Register 4x',
+    supportedTypes: ['short', 'int', 'long', 'float', 'double', 'binary'],
+    defaultType: 'short',
+    displayBase: 40001,
+  },
+};
+
+const MODBUS_TYPE_LABELS = {
+  short: 'short',
+  int: 'int',
+  long: 'long',
+  float: 'float',
+  double: 'double',
+  binary: 'binary',
+};
+
+const MODBUS_TYPE_WORD_COUNT = {
+  short: 1,
+  int: 2,
+  long: 4,
+  float: 2,
+  double: 4,
+  binary: 1,
+};
+
+const MODBUS_ACTION_LABELS = {
+  manual: '手動 manual',
+  random: '隨機 random',
+  increment: '遞增 increment',
+  toggle: '切換 toggle',
+  sine: '波動 sine',
+};
+
+const API_EMPTY_LOG_ROW = `
+  <tr>
+    <td colspan="5" class="empty">目前沒有 API Request Log。</td>
+  </tr>
+`;
+
+const MODBUS_EMPTY_POINT_ROW = `
+  <tr>
+    <td colspan="11" class="empty">目前尚未建立 Modbus 點位。</td>
+  </tr>
+`;
+
+const MODBUS_EMPTY_LOG_ROW = `
+  <tr>
+    <td colspan="11" class="empty">目前沒有 Modbus Request Log。</td>
+  </tr>
+`;
 
 const apiElements = {
   hostInput: document.querySelector('#hostInput'),
@@ -29,6 +101,7 @@ const modbusElements = {
   hostInput: document.querySelector('#modbusHostInput'),
   portInput: document.querySelector('#modbusPortInput'),
   unitIdInput: document.querySelector('#modbusUnitIdInput'),
+  requestAddressBaseModeSelect: document.querySelector('#modbusRequestAddressBaseModeSelect'),
   startButton: document.querySelector('#modbusStartButton'),
   stopButton: document.querySelector('#modbusStopButton'),
   restartButton: document.querySelector('#modbusRestartButton'),
@@ -38,25 +111,24 @@ const modbusElements = {
   messageBox: document.querySelector('#modbusMessageBox'),
   registerTypeSelect: document.querySelector('#modbusRegisterType'),
   startAddressInput: document.querySelector('#modbusStartAddressInput'),
+  addressInputModeSelect: document.querySelector('#modbusAddressInputModeSelect'),
   countInput: document.querySelector('#modbusCountInput'),
   typeSelect: document.querySelector('#modbusValueType'),
   wordOrderSelect: document.querySelector('#modbusWordOrder'),
   initialValueInput: document.querySelector('#modbusInitialValueInput'),
+  actionSelect: document.querySelector('#modbusAction'),
+  actionConfigInput: document.querySelector('#modbusActionConfigInput'),
   generateButton: document.querySelector('#generateRegistersButton'),
   pointTableBody: document.querySelector('#modbusPointTableBody'),
   logTableBody: document.querySelector('#modbusLogTableBody'),
   clearLogsButton: document.querySelector('#clearModbusLogsButton'),
+  generatorHint: document.querySelector('#modbusGeneratorHint'),
 };
 
 const modbusPointDrafts = new Map();
 
 function readIntOrFallback(value, fallback) {
   const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function readNumberOrFallback(value, fallback) {
-  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
@@ -74,6 +146,14 @@ function setPanelMessage(element, message, type = 'info') {
   element.className = `message ${type}`;
 }
 
+function renderStaticSelectOptions(select, options, currentValue) {
+  select.innerHTML = options.map((option) => `
+    <option value="${escapeHtml(option.value)}" ${option.value === currentValue ? 'selected' : ''} ${option.disabled ? 'disabled' : ''}>
+      ${escapeHtml(option.label)}
+    </option>
+  `).join('');
+}
+
 function getApiConfigFromForm() {
   return {
     host: apiElements.hostInput.value.trim() || '127.0.0.1',
@@ -89,24 +169,22 @@ function getModbusConfigFromForm() {
     host: modbusElements.hostInput.value.trim() || '127.0.0.1',
     port: readIntOrFallback(modbusElements.portInput.value, 1502),
     unitId: readIntOrFallback(modbusElements.unitIdInput.value, 1),
+    requestAddressBaseMode: modbusElements.requestAddressBaseModeSelect?.value || 'standard-0-based',
   };
 }
 
 function getRegisterGeneratorConfigFromForm() {
   return {
     regType: modbusElements.registerTypeSelect.value,
-    startAddress: readIntOrFallback(modbusElements.startAddressInput.value, 0),
+    startAddress: readIntOrFallback(modbusElements.startAddressInput.value, 1),
+    addressInputMode: modbusElements.addressInputModeSelect?.value || 'reference',
     count: readIntOrFallback(modbusElements.countInput.value, 1),
     type: modbusElements.typeSelect.value,
     wordOrder: modbusElements.wordOrderSelect.value,
-    initialValue: readNumberOrFallback(modbusElements.initialValueInput.value, 0),
+    initialValue: modbusElements.initialValueInput.value.trim(),
+    action: modbusElements.actionSelect.value,
+    actionConfig: modbusElements.actionConfigInput.value.trim(),
   };
-}
-
-function updateUrlPreview() {
-  const config = getApiConfigFromForm();
-  const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
-  apiElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
 }
 
 function createExamplePayload() {
@@ -141,6 +219,12 @@ function createExamplePayload() {
   return payload;
 }
 
+function updateUrlPreview() {
+  const config = getApiConfigFromForm();
+  const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
+  apiElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
+}
+
 async function updatePayloadEditor() {
   if (apiElements.scenarioSelect.value === 'custom') {
     const customPayloadText = await window.mockMeterApi.getCustomPayloadText();
@@ -165,14 +249,8 @@ function validatePayloadEditor(showSuccess = true) {
   try {
     JSON.parse(text);
 
-    if (showSuccess) {
-      apiElements.payloadValidation.textContent = 'JSON 格式正確。';
-      apiElements.payloadValidation.className = 'message success';
-    } else {
-      apiElements.payloadValidation.textContent = '';
-      apiElements.payloadValidation.className = 'message';
-    }
-
+    apiElements.payloadValidation.textContent = showSuccess ? 'JSON 格式正確。' : '';
+    apiElements.payloadValidation.className = showSuccess ? 'message success' : 'message';
     return true;
   } catch (error) {
     apiElements.payloadValidation.textContent = `JSON 格式錯誤：${error.message}`;
@@ -190,16 +268,16 @@ async function useEditedPayload() {
 
   renderApiStatus(status);
   validatePayloadEditor(true);
-  setPanelMessage(apiElements.messageBox, '已將編輯後的 payload 套用為 custom 情境。', 'success');
+  setPanelMessage(apiElements.messageBox, '已將目前 Payload 套用到 custom scenario。', 'success');
 }
 
-async function formatJson() {
+function formatJson() {
   try {
     const parsed = JSON.parse(apiElements.payloadEditor.value);
     apiElements.payloadEditor.value = JSON.stringify(parsed, null, 2);
     validatePayloadEditor(true);
   } catch (error) {
-    apiElements.payloadValidation.textContent = `無法格式化錯誤的 JSON：${error.message}`;
+    apiElements.payloadValidation.textContent = `無法格式化 JSON：${error.message}`;
     apiElements.payloadValidation.className = 'message error';
   }
 }
@@ -208,7 +286,7 @@ async function resetPayloadExample() {
   apiElements.payloadEditor.value = JSON.stringify(createExamplePayload(), null, 2);
   await window.mockMeterApi.setCustomPayloadText(apiElements.payloadEditor.value);
   validatePayloadEditor(false);
-  setPanelMessage(apiElements.messageBox, 'Payload 範例已重設。', 'success');
+  setPanelMessage(apiElements.messageBox, '已重設為目前 scenario 的範例 Payload。', 'success');
 }
 
 function renderApiStatus(status, options = {}) {
@@ -218,10 +296,8 @@ function renderApiStatus(status, options = {}) {
     syncUrl = true,
   } = options;
 
-  apiElements.serverBadge.textContent = status.running ? '執行中' : '已停止';
-  apiElements.serverBadge.className = status.running
-    ? 'badge badge-running'
-    : 'badge badge-stopped';
+  apiElements.serverBadge.textContent = status.running ? 'API 執行中' : 'API 已停止';
+  apiElements.serverBadge.className = status.running ? 'badge badge-running' : 'badge badge-stopped';
 
   if (status.config && syncConfig) {
     apiElements.hostInput.value = status.config.host;
@@ -241,11 +317,7 @@ function renderApiStatus(status, options = {}) {
 
 function renderApiLogs(logs) {
   if (!logs.length) {
-    apiElements.logTableBody.innerHTML = `
-      <tr>
-        <td colspan="5" class="empty">目前沒有請求記錄。</td>
-      </tr>
-    `;
+    apiElements.logTableBody.innerHTML = API_EMPTY_LOG_ROW;
     return;
   }
 
@@ -258,6 +330,118 @@ function renderApiLogs(logs) {
       <td>${escapeHtml(String(log.statusCode))}</td>
     </tr>
   `).join('');
+}
+
+function getTypeLabel(type) {
+  return MODBUS_TYPE_LABELS[type] || type;
+}
+
+function formatDisplayAddress(point) {
+  return point.displayAddress
+    || point.referenceAddress
+    || toReferenceAddress(point.regType, point.protocolAddress ?? point.address);
+}
+
+function formatPointBitsOrHex(point) {
+  if (point.regType === 'coil' || point.regType === 'discreteInput') {
+    return point.bits?.[0] ? 'true / 1' : 'false / 0';
+  }
+
+  return point.hex.join(' ');
+}
+
+function formatModbusLogAddress(value) {
+  return value == null ? '-' : String(value);
+}
+
+function formatModbusLogReference(log) {
+  if (!log.referenceStartAddress) {
+    return '-';
+  }
+
+  if (!log.referenceEndAddress || log.referenceStartAddress === log.referenceEndAddress) {
+    return String(log.referenceStartAddress);
+  }
+
+  return `${log.referenceStartAddress} ~ ${log.referenceEndAddress}`;
+}
+
+function isBinaryLike(regType, type) {
+  return regType === 'coil' || regType === 'discreteInput' || type === 'binary';
+}
+
+function isWordOrderEditable(regType, type) {
+  return (regType === 'inputRegister' || regType === 'holdingRegister')
+    && (MODBUS_TYPE_WORD_COUNT[type] || 1) > 1;
+}
+
+function getActionOptions(regType, type, selectedAction) {
+  const binaryLike = isBinaryLike(regType, type);
+
+  return Object.entries(MODBUS_ACTION_LABELS).map(([value, label]) => ({
+    value,
+    label,
+    disabled: binaryLike && value === 'sine',
+    selected: value === selectedAction,
+  }));
+}
+
+function syncModbusGeneratorTypeOptions() {
+  const regType = modbusElements.registerTypeSelect.value;
+  const definition = MODBUS_REG_TYPES[regType];
+  const currentType = modbusElements.typeSelect.value;
+  const nextType = definition.supportedTypes.includes(currentType)
+    ? currentType
+    : definition.defaultType;
+
+  renderStaticSelectOptions(
+    modbusElements.typeSelect,
+    definition.supportedTypes.map((type) => ({
+      value: type,
+      label: getTypeLabel(type),
+    })),
+    nextType
+  );
+
+  syncModbusGeneratorActionOptions();
+  syncModbusGeneratorWordOrderState();
+  syncModbusGeneratorHint();
+}
+
+function syncModbusGeneratorActionOptions() {
+  const regType = modbusElements.registerTypeSelect.value;
+  const type = modbusElements.typeSelect.value;
+  const options = getActionOptions(regType, type, modbusElements.actionSelect.value);
+  const enabledOptions = options.filter((option) => !option.disabled);
+  const selectedValue = enabledOptions.some((option) => option.value === modbusElements.actionSelect.value)
+    ? modbusElements.actionSelect.value
+    : 'manual';
+
+  renderStaticSelectOptions(modbusElements.actionSelect, options, selectedValue);
+}
+
+function syncModbusGeneratorWordOrderState() {
+  const regType = modbusElements.registerTypeSelect.value;
+  const type = modbusElements.typeSelect.value;
+  const editable = isWordOrderEditable(regType, type);
+  modbusElements.wordOrderSelect.disabled = !editable;
+
+  if (!editable) {
+    modbusElements.wordOrderSelect.value = 'HL';
+  }
+}
+
+function syncModbusGeneratorHint() {
+  const regType = modbusElements.registerTypeSelect.value;
+  const type = modbusElements.typeSelect.value;
+  const span = MODBUS_TYPE_WORD_COUNT[type] || 1;
+  const regTypeLabel = MODBUS_REG_TYPES[regType]?.label || regType;
+
+  modbusElements.generatorHint.textContent = [
+    `${regTypeLabel} 的 Address 使用 Modbus protocol address，從 0 開始。`,
+    `Display Address 僅供對照點表。`,
+    `${getTypeLabel(type)} 每個點位需要 ${span} 個 ${regType === 'coil' || regType === 'discreteInput' ? 'bit 位址' : 'register 位址'}。`,
+  ].join(' ');
 }
 
 function renderModbusStatus(status, options = {}) {
@@ -276,17 +460,67 @@ function renderModbusStatus(status, options = {}) {
     modbusElements.hostInput.value = status.config.host;
     modbusElements.portInput.value = status.config.port;
     modbusElements.unitIdInput.value = status.config.unitId;
+    if (modbusElements.requestAddressBaseModeSelect) {
+      modbusElements.requestAddressBaseModeSelect.value =
+        status.config.requestAddressBaseMode || 'standard-0-based';
+    }
   }
+}
+
+function renderModbusPointRow(point) {
+  const draft = modbusPointDrafts.get(point.id) || {};
+  const draftValue = draft.value ?? String(point.value);
+  const draftWordOrder = draft.wordOrder ?? point.wordOrder;
+  const draftAction = draft.action ?? point.action;
+  const draftActionConfig = draft.actionConfig ?? point.actionConfigText ?? '';
+  const wordOrderEditable = isWordOrderEditable(point.regType, point.type);
+
+  const actionOptionsHtml = getActionOptions(point.regType, point.type, draftAction).map((option) => `
+    <option value="${escapeHtml(option.value)}" ${option.value === draftAction ? 'selected' : ''} ${option.disabled ? 'disabled' : ''}>
+      ${escapeHtml(option.label)}
+    </option>
+  `).join('');
+
+  return `
+    <tr data-point-id="${escapeHtml(point.id)}">
+      <td><input type="checkbox" ${point.enabled ? 'checked' : ''} disabled /></td>
+      <td>${escapeHtml(point.regTypeLabel || MODBUS_REG_TYPES[point.regType]?.label || point.regType)}</td>
+      <td>${escapeHtml(String(point.address))}</td>
+      <td>${escapeHtml(formatDisplayAddress(point))}</td>
+      <td><code>${escapeHtml(formatPointBitsOrHex(point))}</code></td>
+      <td>
+        <input class="inline-input point-value-input" value="${escapeHtml(String(draftValue))}" />
+      </td>
+      <td>${escapeHtml(getTypeLabel(point.type))}</td>
+      <td>
+        ${wordOrderEditable ? `
+          <select class="small-select point-word-order-select">
+            <option value="HL" ${draftWordOrder === 'HL' ? 'selected' : ''}>HL</option>
+            <option value="LH" ${draftWordOrder === 'LH' ? 'selected' : ''}>LH</option>
+          </select>
+        ` : '<span class="muted-note">-</span>'}
+      </td>
+      <td>
+        <select class="small-select point-action-select">
+          ${actionOptionsHtml}
+        </select>
+      </td>
+      <td>
+        <input
+          class="inline-input point-action-config-input"
+          value="${escapeHtml(String(draftActionConfig))}"
+          placeholder='例如 {"step":1}'
+        />
+      </td>
+      <td><button class="secondary apply-point-button">套用</button></td>
+    </tr>
+  `;
 }
 
 function renderModbusPoints(points) {
   if (!points.length) {
     modbusPointDrafts.clear();
-    modbusElements.pointTableBody.innerHTML = `
-      <tr>
-        <td colspan="10" class="empty">尚未產生任何 registers。</td>
-      </tr>
-    `;
+    modbusElements.pointTableBody.innerHTML = MODBUS_EMPTY_POINT_ROW;
     return;
   }
 
@@ -297,42 +531,12 @@ function renderModbusPoints(points) {
     }
   });
 
-  modbusElements.pointTableBody.innerHTML = points.map((point) => {
-    const draft = modbusPointDrafts.get(point.id);
-    const value = draft?.value ?? point.value;
-    const wordOrder = draft?.wordOrder ?? point.wordOrder;
-
-    return `
-      <tr data-point-id="${escapeHtml(point.id)}">
-        <td><input type="checkbox" ${point.enabled ? 'checked' : ''} disabled /></td>
-        <td>${escapeHtml(point.regType)}</td>
-        <td>${escapeHtml(String(point.address))}</td>
-        <td>${escapeHtml(String(point.displayAddress))}</td>
-        <td><code>${escapeHtml(point.hex.join(' '))}</code></td>
-        <td>
-          <input class="inline-input point-value-input" value="${escapeHtml(String(value))}" />
-        </td>
-        <td>${escapeHtml(point.type)}</td>
-        <td>
-          <select class="small-select point-word-order-select">
-            <option value="HL" ${wordOrder === 'HL' ? 'selected' : ''}>HL</option>
-            <option value="LH" ${wordOrder === 'LH' ? 'selected' : ''}>LH</option>
-          </select>
-        </td>
-        <td>${escapeHtml(point.action)}</td>
-        <td><button class="secondary apply-point-button">套用</button></td>
-      </tr>
-    `;
-  }).join('');
+  modbusElements.pointTableBody.innerHTML = points.map(renderModbusPointRow).join('');
 }
 
 function renderModbusLogs(logs) {
   if (!logs.length) {
-    modbusElements.logTableBody.innerHTML = `
-      <tr>
-        <td colspan="8" class="empty">目前沒有 Modbus 請求記錄。</td>
-      </tr>
-    `;
+    modbusElements.logTableBody.innerHTML = MODBUS_EMPTY_LOG_ROW;
     return;
   }
 
@@ -342,10 +546,14 @@ function renderModbusLogs(logs) {
       <td>${escapeHtml(log.client)}</td>
       <td>${escapeHtml(String(log.unitId))}</td>
       <td>${escapeHtml(log.functionCode)}</td>
-      <td>${escapeHtml(log.action)}</td>
-      <td>${escapeHtml(log.address ?? '-')}</td>
-      <td>${escapeHtml(log.quantity ?? '-')}</td>
-      <td>${escapeHtml(log.status)}</td>
+      <td>${escapeHtml(log.regType ?? '-')}</td>
+      <td>${escapeHtml(formatModbusLogAddress(log.requestStartAddress))}</td>
+      <td>${escapeHtml(formatModbusLogAddress(log.resolvedInternalStartAddress))}</td>
+      <td>${escapeHtml(formatModbusLogReference(log))}</td>
+      <td>${escapeHtml(log.requestAddressBaseMode ?? 'standard-0-based')}</td>
+      <td>${escapeHtml(formatModbusLogAddress(log.requestQuantity ?? log.quantity))}</td>
+      <td>${escapeHtml(log.status ?? '-')}</td>
+      <td>${escapeHtml(`${log.message ?? '-'}${log.requestAddressResolutionNote ? `；${log.requestAddressResolutionNote}` : ''}`)}</td>
     </tr>
   `).join('');
 }
@@ -362,6 +570,8 @@ function isEditingModbusPointTable() {
     && (
       activeElement.classList.contains('point-value-input')
       || activeElement.classList.contains('point-word-order-select')
+      || activeElement.classList.contains('point-action-select')
+      || activeElement.classList.contains('point-action-config-input')
     )
   );
 }
@@ -408,9 +618,9 @@ async function startApiServer() {
   try {
     const status = await window.mockMeterApi.startServer(getApiConfigFromForm());
     renderApiStatus(status);
-    setPanelMessage(apiElements.messageBox, 'Server 已啟動。', 'success');
+    setPanelMessage(apiElements.messageBox, 'API Server 已啟動。', 'success');
   } catch (error) {
-    setPanelMessage(apiElements.messageBox, `啟動失敗：${error.message}`, 'error');
+    setPanelMessage(apiElements.messageBox, `啟動 API Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -418,9 +628,9 @@ async function stopApiServer() {
   try {
     const status = await window.mockMeterApi.stopServer();
     renderApiStatus(status);
-    setPanelMessage(apiElements.messageBox, 'Server 已停止。', 'success');
+    setPanelMessage(apiElements.messageBox, 'API Server 已停止。', 'success');
   } catch (error) {
-    setPanelMessage(apiElements.messageBox, `停止失敗：${error.message}`, 'error');
+    setPanelMessage(apiElements.messageBox, `停止 API Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -428,9 +638,9 @@ async function restartApiServer() {
   try {
     const status = await window.mockMeterApi.restartServer(getApiConfigFromForm());
     renderApiStatus(status);
-    setPanelMessage(apiElements.messageBox, 'Server 已重新啟動。', 'success');
+    setPanelMessage(apiElements.messageBox, 'API Server 已重新啟動。', 'success');
   } catch (error) {
-    setPanelMessage(apiElements.messageBox, `重新啟動失敗：${error.message}`, 'error');
+    setPanelMessage(apiElements.messageBox, `重新啟動 API Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -442,7 +652,7 @@ async function clearApiLogs() {
 async function copyCommand(command) {
   await navigator.clipboard.writeText(command);
   apiElements.copiedCommand.textContent = command;
-  setPanelMessage(apiElements.messageBox, '指令已複製。', 'success');
+  setPanelMessage(apiElements.messageBox, '已複製測試指令。', 'success');
 }
 
 async function refreshModbusStatus() {
@@ -468,9 +678,9 @@ async function startModbusServer() {
   try {
     const status = await window.modbusSimulator.startServer(getModbusConfigFromForm());
     renderModbusStatus(status);
-    setPanelMessage(modbusElements.messageBox, 'Modbus server 已啟動。', 'success');
+    setPanelMessage(modbusElements.messageBox, 'Modbus TCP Server 已啟動。', 'success');
   } catch (error) {
-    setPanelMessage(modbusElements.messageBox, `啟動失敗：${error.message}`, 'error');
+    setPanelMessage(modbusElements.messageBox, `啟動 Modbus TCP Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -478,9 +688,9 @@ async function stopModbusServer() {
   try {
     const status = await window.modbusSimulator.stopServer();
     renderModbusStatus(status);
-    setPanelMessage(modbusElements.messageBox, 'Modbus server 已停止。', 'success');
+    setPanelMessage(modbusElements.messageBox, 'Modbus TCP Server 已停止。', 'success');
   } catch (error) {
-    setPanelMessage(modbusElements.messageBox, `停止失敗：${error.message}`, 'error');
+    setPanelMessage(modbusElements.messageBox, `停止 Modbus TCP Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -488,9 +698,9 @@ async function restartModbusServer() {
   try {
     const status = await window.modbusSimulator.restartServer(getModbusConfigFromForm());
     renderModbusStatus(status);
-    setPanelMessage(modbusElements.messageBox, 'Modbus server 已重新啟動。', 'success');
+    setPanelMessage(modbusElements.messageBox, 'Modbus TCP Server 已重新啟動。', 'success');
   } catch (error) {
-    setPanelMessage(modbusElements.messageBox, `重新啟動失敗：${error.message}`, 'error');
+    setPanelMessage(modbusElements.messageBox, `重新啟動 Modbus TCP Server 失敗：${error.message}`, 'error');
   }
 }
 
@@ -499,30 +709,35 @@ async function generateModbusRegisters() {
     const result = await window.modbusSimulator.generateRegisters(getRegisterGeneratorConfigFromForm());
     renderModbusStatus(result.status);
     renderModbusPoints(result.points);
-    setPanelMessage(modbusElements.messageBox, 'Registers 已產生。', 'success');
+    setPanelMessage(modbusElements.messageBox, '已產生 Modbus 點位。', 'success');
   } catch (error) {
-    setPanelMessage(modbusElements.messageBox, `產生失敗：${error.message}`, 'error');
+    setPanelMessage(modbusElements.messageBox, `產生點位失敗：${error.message}`, 'error');
   }
 }
 
 async function applyModbusPointUpdate(row) {
   const pointId = row.dataset.pointId;
   const value = row.querySelector('.point-value-input')?.value ?? '';
-  const wordOrder = row.querySelector('.point-word-order-select')?.value ?? 'HL';
+  const action = row.querySelector('.point-action-select')?.value ?? 'manual';
+  const actionConfig = row.querySelector('.point-action-config-input')?.value ?? '';
+  const wordOrderSelect = row.querySelector('.point-word-order-select');
+  const wordOrder = wordOrderSelect ? wordOrderSelect.value : 'HL';
 
   try {
     const result = await window.modbusSimulator.updatePoint({
       id: pointId,
       value,
       wordOrder,
+      action,
+      actionConfig,
     });
 
     modbusPointDrafts.delete(pointId);
     renderModbusStatus(result.status);
     renderModbusPoints(result.points);
-    setPanelMessage(modbusElements.messageBox, `點位 ${pointId} 已更新。`, 'success');
+    setPanelMessage(modbusElements.messageBox, `已套用點位 ${pointId}。`, 'success');
   } catch (error) {
-    setPanelMessage(modbusElements.messageBox, `套用失敗：${error.message}`, 'error');
+    setPanelMessage(modbusElements.messageBox, `套用點位失敗：${error.message}`, 'error');
   }
 }
 
@@ -531,9 +746,8 @@ async function clearModbusLogs() {
   renderModbusLogs(logs);
 }
 
-function handlePointDraftInput(event) {
+function updatePointDraft(event) {
   const row = event.target.closest('tr[data-point-id]');
-
   if (!row) {
     return;
   }
@@ -546,12 +760,19 @@ function handlePointDraftInput(event) {
       ...currentDraft,
       value: event.target.value,
     });
+    return;
+  }
+
+  if (event.target.classList.contains('point-action-config-input')) {
+    modbusPointDrafts.set(pointId, {
+      ...currentDraft,
+      actionConfig: event.target.value,
+    });
   }
 }
 
-function handlePointDraftChange(event) {
+function updatePointDraftSelection(event) {
   const row = event.target.closest('tr[data-point-id]');
-
   if (!row) {
     return;
   }
@@ -564,18 +785,24 @@ function handlePointDraftChange(event) {
       ...currentDraft,
       wordOrder: event.target.value,
     });
+    return;
+  }
+
+  if (event.target.classList.contains('point-action-select')) {
+    modbusPointDrafts.set(pointId, {
+      ...currentDraft,
+      action: event.target.value,
+    });
   }
 }
 
 async function handlePointTableClick(event) {
   const button = event.target.closest('.apply-point-button');
-
   if (!button) {
     return;
   }
 
   const row = button.closest('tr[data-point-id]');
-
   if (!row) {
     return;
   }
@@ -592,11 +819,10 @@ apiElements.hostInput.addEventListener('input', updateUrlPreview);
 apiElements.portInput.addEventListener('input', updateUrlPreview);
 apiElements.pathInput.addEventListener('input', updateUrlPreview);
 apiElements.delayInput.addEventListener('input', updateUrlPreview);
-
-apiElements.useEditedPayloadButton?.addEventListener('click', useEditedPayload);
-apiElements.formatJsonButton?.addEventListener('click', formatJson);
-apiElements.resetPayloadButton?.addEventListener('click', resetPayloadExample);
-apiElements.payloadEditor?.addEventListener('input', () => validatePayloadEditor(false));
+apiElements.useEditedPayloadButton.addEventListener('click', useEditedPayload);
+apiElements.formatJsonButton.addEventListener('click', formatJson);
+apiElements.resetPayloadButton.addEventListener('click', resetPayloadExample);
+apiElements.payloadEditor.addEventListener('input', () => validatePayloadEditor(false));
 
 apiElements.scenarioSelect.addEventListener('change', async () => {
   await updatePayloadEditor();
@@ -604,9 +830,9 @@ apiElements.scenarioSelect.addEventListener('change', async () => {
   try {
     const status = await window.mockMeterApi.setScenario(apiElements.scenarioSelect.value);
     renderApiStatus(status);
-    setPanelMessage(apiElements.messageBox, `情境已切換為 ${apiElements.scenarioSelect.value}。`, 'success');
+    setPanelMessage(apiElements.messageBox, `已切換到 scenario：${apiElements.scenarioSelect.value}`, 'success');
   } catch (error) {
-    setPanelMessage(apiElements.messageBox, `情境更新失敗：${error.message}`, 'error');
+    setPanelMessage(apiElements.messageBox, `切換 scenario 失敗：${error.message}`, 'error');
   }
 });
 
@@ -621,13 +847,20 @@ modbusElements.stopButton.addEventListener('click', stopModbusServer);
 modbusElements.restartButton.addEventListener('click', restartModbusServer);
 modbusElements.generateButton.addEventListener('click', generateModbusRegisters);
 modbusElements.clearLogsButton.addEventListener('click', clearModbusLogs);
-modbusElements.pointTableBody.addEventListener('input', handlePointDraftInput);
-modbusElements.pointTableBody.addEventListener('change', handlePointDraftChange);
+modbusElements.registerTypeSelect.addEventListener('change', syncModbusGeneratorTypeOptions);
+modbusElements.typeSelect.addEventListener('change', () => {
+  syncModbusGeneratorActionOptions();
+  syncModbusGeneratorWordOrderState();
+  syncModbusGeneratorHint();
+});
+modbusElements.pointTableBody.addEventListener('input', updatePointDraft);
+modbusElements.pointTableBody.addEventListener('change', updatePointDraftSelection);
 modbusElements.pointTableBody.addEventListener('click', handlePointTableClick);
 
 async function init() {
   initModeTabs();
   updateUrlPreview();
+  syncModbusGeneratorTypeOptions();
 
   await refreshApiStatus();
   await updatePayloadEditor();

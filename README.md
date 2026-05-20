@@ -1,6 +1,6 @@
 # BMS Protocol Mock Lab
 
-以 Electron + Vite 建立的獨立 mock app，用於 API 模擬、Modbus TCP 模擬與後續 Modbus 對 API 橋接流程。
+以 Electron + Vite 建立的獨立 mock app，提供 API Simulator、Modbus TCP Simulator，並預留後續 Modbus → API Bridge。
 
 ## 安裝
 
@@ -14,9 +14,9 @@ npm install
 npm start
 ```
 
-## API 模擬器
+## API Simulator
 
-### API 端點
+### API 路由
 
 - `GET /health`
 - `GET /api/energy`
@@ -28,76 +28,82 @@ npm start
 - `GET /api/energy?scenario=timeout`
 - `GET /api/energy?scenario=custom`
 
-### 情境
+### Scenario
 
-- `normal`：回傳正常的 energy payload
-- `no-total`：省略 `total` 節點
+- `normal`：回傳完整 energy payload
+- `no-total`：移除 `total`
 - `http-500`：回傳 HTTP 500
-- `invalid-json`：回傳格式損壞的 JSON 文字
-- `invalid-schema`：回傳欄位型別錯誤或欄位缺漏的 JSON
-- `timeout`：延遲回應以模擬 timeout 行為
-- `custom`：回傳目前 Payload 編輯器中的內容
+- `invalid-json`：回傳非合法 JSON
+- `invalid-schema`：回傳欄位缺漏或型別錯誤的 JSON
+- `timeout`：延長回應時間，模擬 timeout
+- `custom`：回傳目前 Payload Editor 內容
 
-## Modbus TCP 模擬器
+## Modbus TCP Simulator
 
-R2 目前支援：
-
-- Modbus TCP server
-- 可設定 host / port / unit ID
-- Holding Register 4x
-- FC03 Read Holding Registers
-- FC06 Write Single Holding Register
-- FC16 Write Multiple Holding Registers
-- short
-- float
-- HL / LH word order
-- 手動編輯數值
-- request log
-
-預設值：
-
-- Host: `127.0.0.1`
-- Port: `1502`
-- Unit ID: `1`
-
-位址規則：
-
-- 內部位址使用 zero-based protocol address
-- Holding Register display address = `40001 + protocol address`
-
-範例：
-
-- Protocol address `0` = Display address `40001`
-- Protocol address `1` = Display address `40002`
-
-R3 預計加入：
+R3 支援：
 
 - Coil 0x
 - Discrete Input 1x
 - Input Register 3x
-- int / long / double / binary
-- random / increment / toggle / sine actions
+- Holding Register 4x
+- FC01 Read Coils
+- FC02 Read Discrete Inputs
+- FC03 Read Holding Registers
+- FC04 Read Input Registers
+- FC05 Write Single Coil
+- FC06 Write Single Holding Register
+- FC15 Write Multiple Coils
+- FC16 Write Multiple Holding Registers
+- short
+- int
+- long
+- float
+- double
+- binary
+- HL / LH word order
+- manual / random / increment / toggle / sine actions
+- request log
 
-## 路線圖
+### 位址規則
+
+內部 address 使用 Modbus protocol address，從 0 開始。
+
+Display address：
+
+- Coil 0x：address 0 = 00001
+- Discrete Input 1x：address 0 = 10001
+- Input Register 3x：address 0 = 30001
+- Holding Register 4x：address 0 = 40001
+
+### 注意事項
+
+- Port 502 可能需要系統管理員權限，建議本機測試使用 1502。
+- Discrete Input 1x 與 Input Register 3x 為唯讀。
+- Coil 0x 與 Holding Register 4x 可寫入。
+- `Count` 使用 protocol address 數量；若資料型別需要多個 register，請使用對應倍數。
+- `long` 以 64-bit signed integer 編解碼，UI 建議輸入整數字串；超出 JavaScript safe integer 範圍時，action 設定請避免依賴高精度數值運算。
+- R4 將新增 Modbus → API Bridge。
+
+## Roadmap
 
 ### R1
 
-- Mode tabs UI
-- API 模擬器
+- Mode Tabs UI
+- API Simulator
 
 ### R2
 
-- Modbus TCP 模擬器
-- Holding register 產生與編輯
-- Modbus request logging
+- Modbus TCP Simulator 基礎版
+- Holding Register 4x
+- FC03 / FC06 / FC16
 
 ### R3
 
-- 更多 register types
-- 更多資料型別
-- 更多 actions
+- 完整 Register Type / Data Type / Action
+- 中文優先 UI
+- 完整 Modbus Request Log
 
 ### R4
 
-- Modbus 對 API 橋接
-- 從 registers 對應到 JSON payload 的 mapping rules
+- Modbus → API Bridge
+- register 到 HTTP API payload 的 mapping rules

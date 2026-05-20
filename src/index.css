@@ -363,18 +363,18 @@ th {
 }
 
 .inline-input {
-  min-width: 88px;
+  min-width: 120px;
   padding: 8px 10px;
 }
 
 .small-select {
-  min-width: 76px;
+  min-width: 96px;
   padding: 8px 10px;
 }
 
 .status-running,
 .status-stopped {
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .badge-warning {
@@ -392,6 +392,27 @@ th {
 .modbus-table td,
 .modbus-log-table td {
   vertical-align: middle;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.help-text {
+  margin: 10px 0 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.config-hint p {
+  margin: 0 0 10px;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.muted-note {
+  color: #9aa5b1;
 }
 
 @media (max-width: 980px) {
