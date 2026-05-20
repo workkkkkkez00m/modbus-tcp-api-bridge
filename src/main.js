@@ -10,7 +10,9 @@ if (started) {
 const mockServer = new MockMeterApiServer();
 
 function getAppIconPath() {
-  return path.join(app.getAppPath(), 'src', 'public', 'meter-icon.ico');
+  const iconFileName =
+    process.platform === 'darwin' ? 'mac-icon.icns' : 'meter-icon.ico';
+  return path.join(app.getAppPath(), 'src', 'public', iconFileName);
 }
 
 function createWindow() {

@@ -1,10 +1,15 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
+const packagerIcon =
+  process.platform === 'darwin'
+    ? 'src/public/mac-icon.icns'
+    : 'src/public/meter-icon.ico';
+
 module.exports = {
   packagerConfig: {
     asar: true,
-    icon: 'src/public/meter-icon',
+    icon: packagerIcon,
   },
   rebuildConfig: {},
   makers: [
