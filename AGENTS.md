@@ -293,6 +293,35 @@ Reference Address / 1-based 模式不允許起始位址為 0，請輸入 1 或�
 
 ---
 
+### R4 Bridge 共用規則
+
+R4 目標是建立 Modbus → API Bridge：
+
+Modbus points snapshot
+→ Mapping Rules
+→ HTTP API Payload
+
+R4 必須遵守：
+
+- 不修改 BMS 主專案
+- 不新增 dependencies
+- 不共用現有 API Simulator server instance
+- 不把 Bridge 邏輯塞進 mockMeterApiServer.js
+- 不破壞 API Simulator
+- 不破壞 Modbus TCP Simulator
+- 不改 R3 address / undefined boolean / feedback mapping 行為
+- Bridge mapping 內部索引用 regType + protocolAddress
+- 不用 point.id 當 mapping 主鍵
+- 不用 Reference Address 當內部主索引
+- Bridge server 必須是 main process 管理的獨立 HTTP server
+- renderer 只能透過 preload / IPC 操作 Bridge
+- 不開啟 nodeIntegration
+- 維持 contextIsolation: true
+- 不執行 npm start，除非使用者明確要求
+- 中文優先
+
+---
+
 ## 回報規則
 
 每次修改後只回報：

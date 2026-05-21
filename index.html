@@ -429,34 +429,144 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
 
     <section id="bridgePanel" class="mode-panel" data-mode-panel="bridge">
       <main class="layout">
-        <section class="placeholder-card">
-          <h2>Modbus → API Bridge</h2>
-          <p class="muted">此區塊仍為 placeholder。R3 只處理 Modbus TCP Simulator，不在本階段實作 Bridge。</p>
+        <section class="card">
+          <h2>Bridge Server 控制</h2>
+          <p class="muted">Bridge API 由 main process 管理，renderer 只透過 IPC 操作。</p>
+
+          <div class="grid">
+            <label>
+              Host
+              <input id="bridgeHostInput" value="127.0.0.1" />
+            </label>
+
+            <label>
+              Port
+              <input id="bridgePortInput" type="number" value="3201" />
+            </label>
+
+            <label class="full">
+              API Path
+              <input id="bridgePathInput" value="/api/bridge" />
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="bridgeStartButton">啟動 Bridge API</button>
+            <button id="bridgeStopButton" class="secondary">停止 Bridge API</button>
+            <button id="bridgeRestartButton" class="secondary">重新啟動 Bridge API</button>
+          </div>
+
+          <div class="info-box">
+            <div class="info-row">
+              <span class="info-label">Status</span>
+              <span id="bridgeServerStatus" class="badge badge-stopped status-stopped">已停止</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Current URL</span>
+              <code id="bridgeCurrentUrl">http://127.0.0.1:3201/api/bridge</code>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Preview</span>
+              <span id="bridgePreviewModeText">使用 default mappings，按鈕觸發更新。</span>
+            </div>
+          </div>
+
+          <div id="bridgeMessageBox" class="message"></div>
         </section>
 
-        <section class="placeholder-card">
-          <h2>Bridge 流程概念</h2>
-          <pre class="flow-diagram">Modbus Register Table
-        -> Mapping Rules
-        -> HTTP API Payload
-        -> Frontend / BMS API Client</pre>
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Mapping Table Editor</h2>
+              <p class="muted">Bridge mapping 內部索引固定使用 regType + protocolAddress，不使用 point.id 與 Reference Address。</p>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button id="bridgeReloadMappingsButton" class="secondary">讀取已儲存 Mappings</button>
+            <button id="bridgeLoadMappingsButton" class="secondary">載入範例 Mappings</button>
+            <button id="bridgeAddMappingButton">新增 Mapping</button>
+            <button id="bridgeSaveMappingsButton" class="secondary">儲存 Mappings</button>
+          </div>
+
+          <p class="help-text">JSON Path 僅支援物件點號路徑，例如 <code>site.power.total</code>；不支援 array path。</p>
+
+          <div class="table-wrap">
+            <table class="bridge-mapping-table">
+              <thead>
+                <tr>
+                  <th>啟用</th>
+                  <th>JSON Path</th>
+                  <th>來源類型</th>
+                  <th>Protocol Address</th>
+                  <th>轉換型別</th>
+                  <th>Fallback</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="bridgeMappingTableBody">
+                <tr>
+                  <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入範例。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
-        <section class="placeholder-card">
-          <h2>預計功能</h2>
-          <ul class="feature-list">
-            <li>以 Modbus register table 為來源。</li>
-            <li>支援 register 對應到 JSON path。</li>
-            <li>可產生 HTTP API response payload。</li>
-            <li>可對應 BMS energy mapping。</li>
-            <li>提供可調整的 JSON mapper。</li>
-          </ul>
+        <section class="card">
+          <h2>Preview</h2>
+          <p class="muted">產生 Preview 時直接使用目前表格 mappings；未儲存也可預覽。</p>
+
+          <div class="button-row">
+            <button id="bridgePreviewButton">產生 Preview</button>
+          </div>
+
+          <div class="bridge-preview-grid">
+            <div>
+              <div class="info-label">Payload Preview</div>
+              <pre id="bridgePayloadPreview">{
+  "sample": {}
+}</pre>
+            </div>
+            <div>
+              <div class="info-label">Diagnostics</div>
+              <pre id="bridgeDiagnosticsPreview">{
+  "appliedMappings": [],
+  "missingMappings": []
+}</pre>
+            </div>
+          </div>
         </section>
 
-        <section class="placeholder-card full-width">
-          <h2>目前狀態</h2>
-          <p>R3 已補齊 Modbus TCP Simulator。</p>
-          <p>R4 才會開始處理 Modbus → API Bridge mapping。</p>
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Request Log</h2>
+              <p class="muted">顯示 Bridge server logs。</p>
+            </div>
+            <button id="bridgeRefreshLogsButton" class="secondary">重新整理 Logs</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="bridge-log-table">
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>Method</th>
+                  <th>Path</th>
+                  <th>Status</th>
+                  <th>Mappings</th>
+                  <th>Missing</th>
+                  <th>訊息</th>
+                </tr>
+              </thead>
+              <tbody id="bridgeLogTableBody">
+                <tr>
+                  <td colspan="7" class="empty">目前沒有 Bridge Request Log。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </section>

@@ -25,3 +25,16 @@ contextBridge.exposeInMainWorld('modbusSimulator', {
   getLogs: () => ipcRenderer.invoke('modbus:get-logs'),
   clearLogs: () => ipcRenderer.invoke('modbus:clear-logs'),
 });
+
+contextBridge.exposeInMainWorld('bridgeSimulator', {
+  startServer: (config) => ipcRenderer.invoke('bridge:start-server', config),
+  stopServer: () => ipcRenderer.invoke('bridge:stop-server'),
+  restartServer: (config) => ipcRenderer.invoke('bridge:restart-server', config),
+  getStatus: () => ipcRenderer.invoke('bridge:get-status'),
+  getPreview: (mappings) => ipcRenderer.invoke('bridge:get-preview', mappings),
+  getMappings: () => ipcRenderer.invoke('bridge:get-mappings'),
+  setMappings: (mappings) => ipcRenderer.invoke('bridge:set-mappings', mappings),
+  getDefaultMappings: () => ipcRenderer.invoke('bridge:get-default-mappings'),
+  getLogs: () => ipcRenderer.invoke('bridge:get-logs'),
+  clearLogs: () => ipcRenderer.invoke('bridge:clear-logs'),
+});

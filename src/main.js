@@ -2,7 +2,10 @@ import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { bridgeDefaultConfig } from './bridgeDefaultConfig.js';
+import { buildBridgePayload } from './bridgeMapper.js';
 import { MockMeterApiServer } from './mockMeterApiServer.js';
+import { MockBridgeApiServer } from './mockBridgeApiServer.js';
 import { MockModbusTcpServer } from './mockModbusTcpServer.js';
 
 if (started) {
@@ -11,6 +14,34 @@ if (started) {
 
 const mockServer = new MockMeterApiServer();
 const modbusServer = new MockModbusTcpServer();
+
+function cloneJsonValue(value) {
+  if (value == null) {
+    return value;
+  }
+
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getDefaultBridgeMappings() {
+  return cloneJsonValue(bridgeDefaultConfig.mappings || []);
+}
+
+function normalizeBridgeMappings(mappings) {
+  return Array.isArray(mappings) ? cloneJsonValue(mappings) : [];
+}
+
+let bridgeMappings = getDefaultBridgeMappings();
+
+const bridgeServer = new MockBridgeApiServer({
+  getPoints: () => modbusServer.getPoints(),
+  getMappings: () => normalizeBridgeMappings(bridgeMappings),
+  buildPayload: ({ points, mappings, includeTimestamp } = {}) => buildBridgePayload({
+    points,
+    mappings,
+    includeTimestamp,
+  }),
+});
 
 function resolveAppIconPath() {
   const iconFileName =
@@ -150,6 +181,57 @@ function registerIpc() {
   ipcMain.handle('modbus:clear-logs', async () => {
     return modbusServer.clearLogs();
   });
+
+  ipcMain.handle('bridge:start-server', async (_event, config) => {
+    return bridgeServer.start(config);
+  });
+
+  ipcMain.handle('bridge:stop-server', async () => {
+    return bridgeServer.stop();
+  });
+
+  ipcMain.handle('bridge:restart-server', async (_event, config) => {
+    return bridgeServer.restart(config);
+  });
+
+  ipcMain.handle('bridge:get-status', async () => {
+    return bridgeServer.getStatus();
+  });
+
+  ipcMain.handle('bridge:get-preview', async (_event, mappings) => {
+    const points = modbusServer.getPoints();
+    const previewMappings = Array.isArray(mappings)
+      ? normalizeBridgeMappings(mappings)
+      : normalizeBridgeMappings(bridgeMappings);
+
+    return buildBridgePayload({
+      points,
+      mappings: previewMappings,
+      includeTimestamp: bridgeDefaultConfig.includeTimestamp,
+    });
+  });
+
+  ipcMain.handle('bridge:get-mappings', async () => {
+    return normalizeBridgeMappings(bridgeMappings);
+  });
+
+  ipcMain.handle('bridge:set-mappings', async (_event, mappings) => {
+    bridgeMappings = normalizeBridgeMappings(mappings);
+    return normalizeBridgeMappings(bridgeMappings);
+  });
+
+  ipcMain.handle('bridge:get-default-mappings', async () => {
+    return getDefaultBridgeMappings();
+  });
+
+  ipcMain.handle('bridge:get-logs', async () => {
+    return bridgeServer.getLogs();
+  });
+
+  ipcMain.handle('bridge:clear-logs', async () => {
+    bridgeServer.clearLogs();
+    return bridgeServer.getLogs();
+  });
 }
 
 app.whenReady().then(() => {
@@ -175,6 +257,12 @@ app.on('before-quit', async () => {
     await modbusServer.stop();
   } catch (error) {
     console.error('Failed to stop Modbus server:', error);
+  }
+
+  try {
+    await bridgeServer.stop();
+  } catch (error) {
+    console.error('Failed to stop Bridge server:', error);
   }
 });
 

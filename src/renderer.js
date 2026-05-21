@@ -75,6 +75,25 @@ const MODBUS_EMPTY_LOG_ROW = `
   </tr>
 `;
 
+const BRIDGE_EMPTY_LOG_ROW = `
+  <tr>
+    <td colspan="7" class="empty">目前沒有 Bridge Request Log。</td>
+  </tr>
+`;
+
+const BRIDGE_EMPTY_MAPPING_ROW = `
+  <tr>
+    <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入範例。</td>
+  </tr>
+`;
+
+const BRIDGE_TRANSFORM_TYPES = [
+  { value: 'raw', label: 'raw' },
+  { value: 'number', label: 'number' },
+  { value: 'boolean', label: 'boolean' },
+  { value: 'string', label: 'string' },
+];
+
 const apiElements = {
   hostInput: document.querySelector('#hostInput'),
   portInput: document.querySelector('#portInput'),
@@ -127,7 +146,31 @@ const modbusElements = {
   generatorHint: document.querySelector('#modbusGeneratorHint'),
 };
 
+const bridgeElements = {
+  hostInput: document.querySelector('#bridgeHostInput'),
+  portInput: document.querySelector('#bridgePortInput'),
+  pathInput: document.querySelector('#bridgePathInput'),
+  startButton: document.querySelector('#bridgeStartButton'),
+  stopButton: document.querySelector('#bridgeStopButton'),
+  restartButton: document.querySelector('#bridgeRestartButton'),
+  statusBadge: document.querySelector('#bridgeServerStatus'),
+  currentUrl: document.querySelector('#bridgeCurrentUrl'),
+  previewModeText: document.querySelector('#bridgePreviewModeText'),
+  messageBox: document.querySelector('#bridgeMessageBox'),
+  mappingTableBody: document.querySelector('#bridgeMappingTableBody'),
+  reloadMappingsButton: document.querySelector('#bridgeReloadMappingsButton'),
+  loadMappingsButton: document.querySelector('#bridgeLoadMappingsButton'),
+  addMappingButton: document.querySelector('#bridgeAddMappingButton'),
+  saveMappingsButton: document.querySelector('#bridgeSaveMappingsButton'),
+  previewButton: document.querySelector('#bridgePreviewButton'),
+  payloadPreview: document.querySelector('#bridgePayloadPreview'),
+  diagnosticsPreview: document.querySelector('#bridgeDiagnosticsPreview'),
+  logTableBody: document.querySelector('#bridgeLogTableBody'),
+  refreshLogsButton: document.querySelector('#bridgeRefreshLogsButton'),
+};
+
 const modbusPointDrafts = new Map();
+let bridgeMappingRowSeed = 0;
 
 function ensureModbusUndefinedBooleanModeField() {
   const buttonRow = document.querySelector('#modbusPanel .button-row');
@@ -262,6 +305,14 @@ function getModbusConfigFromForm() {
   };
 }
 
+function getBridgeConfigFromForm() {
+  return {
+    host: bridgeElements.hostInput.value.trim() || '127.0.0.1',
+    port: readIntOrFallback(bridgeElements.portInput.value, 3201),
+    path: bridgeElements.pathInput.value.trim() || '/api/bridge',
+  };
+}
+
 function getRegisterGeneratorConfigFromForm() {
   return {
     regType: modbusElements.registerTypeSelect.value,
@@ -308,10 +359,299 @@ function createExamplePayload() {
   return payload;
 }
 
+function formatJsonPreview(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function buildSelectOptionsHtml(options, currentValue) {
+  return options.map((option) => `
+    <option value="${escapeHtml(option.value)}" ${option.value === currentValue ? 'selected' : ''}>
+      ${escapeHtml(option.label)}
+    </option>
+  `).join('');
+}
+
+function nextBridgeMappingIds(mappingId) {
+  bridgeMappingRowSeed += 1;
+
+  return {
+    rowId: `bridge-row-${bridgeMappingRowSeed}`,
+    mappingId: mappingId || `bridge-mapping-${bridgeMappingRowSeed}`,
+  };
+}
+
+function hasBridgeFallbackValue(mapping) {
+  return Boolean(mapping && Object.hasOwn(mapping, 'fallbackValue'));
+}
+
+function formatBridgeFallbackValue(value, hasFallback = true) {
+  if (!hasFallback) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function createBridgeMappingDraft(mapping = {}) {
+  const ids = nextBridgeMappingIds(String(mapping.id ?? '').trim());
+
+  return {
+    rowId: ids.rowId,
+    mappingId: ids.mappingId,
+    enabled: mapping.enabled !== false,
+    targetPath: String(mapping.targetPath ?? ''),
+    regType: MODBUS_REG_TYPES[mapping.source?.regType] ? mapping.source.regType : 'holdingRegister',
+    protocolAddress: String(mapping.source?.protocolAddress ?? '0'),
+    transformType: BRIDGE_TRANSFORM_TYPES.some((item) => item.value === mapping.transform?.type)
+      ? mapping.transform.type
+      : 'raw',
+    fallbackText: formatBridgeFallbackValue(mapping.fallbackValue, hasBridgeFallbackValue(mapping)),
+  };
+}
+
+function createEmptyBridgeMappingDraft() {
+  return createBridgeMappingDraft({
+    enabled: true,
+    targetPath: '',
+    source: {
+      regType: 'holdingRegister',
+      protocolAddress: 0,
+    },
+    transform: {
+      type: 'raw',
+    },
+  });
+}
+
+function renderBridgeMappingRow(draft) {
+  const sourceTypeOptions = Object.entries(MODBUS_REG_TYPES).map(([value, definition]) => ({
+    value,
+    label: definition.label,
+  }));
+
+  return `
+    <tr data-bridge-row-id="${escapeHtml(draft.rowId)}" data-mapping-id="${escapeHtml(draft.mappingId)}">
+      <td class="checkbox-cell">
+        <input class="bridge-mapping-enabled-input" type="checkbox" ${draft.enabled ? 'checked' : ''} />
+      </td>
+      <td>
+        <input
+          class="bridge-mapping-path-input"
+          value="${escapeHtml(draft.targetPath)}"
+          placeholder="例如 site.power.total"
+        />
+      </td>
+      <td>
+        <select class="bridge-mapping-select bridge-mapping-reg-type-select">
+          ${buildSelectOptionsHtml(sourceTypeOptions, draft.regType)}
+        </select>
+      </td>
+      <td>
+        <input
+          class="bridge-mapping-address-input"
+          type="number"
+          min="0"
+          step="1"
+          value="${escapeHtml(String(draft.protocolAddress))}"
+        />
+      </td>
+      <td>
+        <select class="bridge-mapping-select bridge-mapping-transform-select">
+          ${buildSelectOptionsHtml(BRIDGE_TRANSFORM_TYPES, draft.transformType)}
+        </select>
+      </td>
+      <td>
+        <input
+          class="bridge-mapping-fallback-input"
+          value="${escapeHtml(draft.fallbackText)}"
+          placeholder="留空表示不使用 fallback"
+        />
+      </td>
+      <td class="bridge-mapping-actions-cell">
+        <button type="button" class="secondary bridge-delete-mapping-button">刪除 Mapping</button>
+      </td>
+    </tr>
+  `;
+}
+
+function renderBridgeMappingTable(mappings) {
+  if (!mappings.length) {
+    bridgeElements.mappingTableBody.innerHTML = BRIDGE_EMPTY_MAPPING_ROW;
+    return;
+  }
+
+  const drafts = mappings.map((mapping) => (
+    Object.hasOwn(mapping, 'rowId')
+      ? mapping
+      : createBridgeMappingDraft(mapping)
+  ));
+
+  bridgeElements.mappingTableBody.innerHTML = drafts.map(renderBridgeMappingRow).join('');
+}
+
+function getBridgeMappingRows() {
+  return [...bridgeElements.mappingTableBody.querySelectorAll('tr[data-bridge-row-id]')];
+}
+
+function readBridgeMappingDraftsFromTable() {
+  return getBridgeMappingRows().map((row) => ({
+    rowId: row.dataset.bridgeRowId,
+    mappingId: row.dataset.mappingId || nextBridgeMappingIds().mappingId,
+    enabled: row.querySelector('.bridge-mapping-enabled-input')?.checked ?? true,
+    targetPath: row.querySelector('.bridge-mapping-path-input')?.value ?? '',
+    regType: row.querySelector('.bridge-mapping-reg-type-select')?.value ?? 'holdingRegister',
+    protocolAddress: row.querySelector('.bridge-mapping-address-input')?.value ?? '0',
+    transformType: row.querySelector('.bridge-mapping-transform-select')?.value ?? 'raw',
+    fallbackText: row.querySelector('.bridge-mapping-fallback-input')?.value ?? '',
+  }));
+}
+
+function normalizeBridgeJsonPath(pathText, rowIndex) {
+  const normalizedPath = String(pathText ?? '').trim();
+
+  if (!normalizedPath) {
+    throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 JSON Path 不可為空。`);
+  }
+
+  if (normalizedPath.includes('[') || normalizedPath.includes(']')) {
+    throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 JSON Path 不支援 array path。`);
+  }
+
+  const segments = normalizedPath.split('.');
+
+  if (segments.some((segment) => !segment.trim())) {
+    throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 JSON Path 格式無效。`);
+  }
+
+  return normalizedPath;
+}
+
+function normalizeBridgeProtocolAddress(addressText, rowIndex) {
+  const parsed = Number.parseInt(String(addressText ?? '').trim(), 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 Protocol Address 必須是 0 以上整數。`);
+  }
+
+  return parsed;
+}
+
+function parseBridgeBooleanText(value, rowIndex) {
+  const normalizedValue = String(value ?? '').trim().toLowerCase();
+
+  if (normalizedValue === 'true' || normalizedValue === '1') {
+    return true;
+  }
+
+  if (normalizedValue === 'false' || normalizedValue === '0') {
+    return false;
+  }
+
+  throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 Fallback 必須是 true / false / 1 / 0。`);
+}
+
+function parseBridgeFallbackValue(fallbackText, transformType, rowIndex) {
+  const rawValue = String(fallbackText ?? '');
+  const trimmedValue = rawValue.trim();
+
+  if (!trimmedValue) {
+    return {
+      hasFallback: false,
+      fallbackValue: undefined,
+    };
+  }
+
+  switch (transformType) {
+    case 'number': {
+      const parsedNumber = Number(trimmedValue);
+      if (!Number.isFinite(parsedNumber)) {
+        throw new Error(`第 ${rowIndex + 1} 筆 Mapping 的 Fallback 必須是有效數字。`);
+      }
+      return {
+        hasFallback: true,
+        fallbackValue: parsedNumber,
+      };
+    }
+
+    case 'boolean':
+      return {
+        hasFallback: true,
+        fallbackValue: parseBridgeBooleanText(trimmedValue, rowIndex),
+      };
+
+    case 'string':
+      return {
+        hasFallback: true,
+        fallbackValue: rawValue,
+      };
+
+    case 'raw':
+    default:
+      try {
+        return {
+          hasFallback: true,
+          fallbackValue: JSON.parse(trimmedValue),
+        };
+      } catch {
+        return {
+          hasFallback: true,
+          fallbackValue: rawValue,
+        };
+      }
+  }
+}
+
+function collectBridgeMappingsFromTable() {
+  return readBridgeMappingDraftsFromTable().map((draft, index) => {
+    const regType = MODBUS_REG_TYPES[draft.regType] ? draft.regType : 'holdingRegister';
+    const transformType = BRIDGE_TRANSFORM_TYPES.some((item) => item.value === draft.transformType)
+      ? draft.transformType
+      : 'raw';
+    const fallback = parseBridgeFallbackValue(draft.fallbackText, transformType, index);
+
+    const mapping = {
+      id: draft.mappingId,
+      enabled: Boolean(draft.enabled),
+      targetPath: normalizeBridgeJsonPath(draft.targetPath, index),
+      source: {
+        regType,
+        protocolAddress: normalizeBridgeProtocolAddress(draft.protocolAddress, index),
+      },
+      transform: {
+        type: transformType,
+      },
+    };
+
+    if (fallback.hasFallback) {
+      mapping.fallbackValue = fallback.fallbackValue;
+    }
+
+    return mapping;
+  });
+}
+
+function getEnabledBridgeMappingCount(mappings) {
+  return mappings.filter((mapping) => mapping?.enabled !== false).length;
+}
+
 function updateUrlPreview() {
   const config = getApiConfigFromForm();
   const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
   apiElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
+}
+
+function updateBridgeUrlPreview() {
+  const config = getBridgeConfigFromForm();
+  const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
+  bridgeElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
 }
 
 async function updatePayloadEditor() {
@@ -697,6 +1037,64 @@ function renderModbusStatus(status, options = {}) {
   }
 }
 
+function renderBridgeStatus(status, options = {}) {
+  const { syncConfig = true } = options;
+  const running = Boolean(status.running);
+
+  bridgeElements.statusBadge.textContent = running ? '執行中' : '已停止';
+  bridgeElements.statusBadge.className = running
+    ? 'badge badge-running status-running'
+    : 'badge badge-stopped status-stopped';
+
+  bridgeElements.currentUrl.textContent = status.url || bridgeElements.currentUrl.textContent;
+
+  if (syncConfig && status.config) {
+    bridgeElements.hostInput.value = status.config.host;
+    bridgeElements.portInput.value = status.config.port;
+    bridgeElements.pathInput.value = status.config.path;
+  }
+}
+
+function renderBridgeLogs(logs) {
+  if (!logs.length) {
+    bridgeElements.logTableBody.innerHTML = BRIDGE_EMPTY_LOG_ROW;
+    return;
+  }
+
+  bridgeElements.logTableBody.innerHTML = logs.map((log) => `
+    <tr>
+      <td>${escapeHtml(log.time)}</td>
+      <td>${escapeHtml(log.method)}</td>
+      <td><code>${escapeHtml(log.path)}</code></td>
+      <td>${escapeHtml(String(log.statusCode))}</td>
+      <td>${escapeHtml(String(log.mappingCount ?? 0))}</td>
+      <td>${escapeHtml(String(log.missingMappingCount ?? 0))}</td>
+      <td>${escapeHtml(log.message || '-')}</td>
+    </tr>
+  `).join('');
+}
+
+function renderBridgePreview(previewResult, options = {}) {
+  const {
+    sourceLabel = '表格',
+    totalCount = 0,
+    enabledCount = totalCount,
+  } = options;
+  const payload = previewResult?.payload ?? {};
+  const diagnostics = previewResult?.diagnostics ?? {};
+  const appliedCount = Array.isArray(diagnostics.appliedMappings)
+    ? diagnostics.appliedMappings.length
+    : 0;
+  const missingCount = Array.isArray(diagnostics.missingMappings)
+    ? diagnostics.missingMappings.length
+    : 0;
+
+  bridgeElements.payloadPreview.textContent = formatJsonPreview(payload);
+  bridgeElements.diagnosticsPreview.textContent = formatJsonPreview(diagnostics);
+  bridgeElements.previewModeText.textContent =
+    `使用${sourceLabel} mappings，共 ${totalCount} 筆（啟用 ${enabledCount} 筆）；已套用 ${appliedCount} 筆，缺少 ${missingCount} 筆。`;
+}
+
 function renderModbusPointRow(point) {
   const draft = modbusPointDrafts.get(point.id) || {};
   const draftValue = draft.value ?? String(point.value);
@@ -907,6 +1305,33 @@ async function refreshModbusLogs() {
   renderModbusLogs(logs);
 }
 
+async function refreshBridgeStatus() {
+  const status = await window.bridgeSimulator.getStatus();
+  renderBridgeStatus(status, { syncConfig: false });
+}
+
+async function refreshBridgeLogs() {
+  const logs = await window.bridgeSimulator.getLogs();
+  renderBridgeLogs(logs);
+}
+
+async function loadBridgeMappingsFromMain(options = {}) {
+  const { silent = false } = options;
+
+  try {
+    const mappings = await window.bridgeSimulator.getMappings();
+    renderBridgeMappingTable(mappings);
+    bridgeElements.previewModeText.textContent =
+      `已從 main process 讀取 mappings，共 ${mappings.length} 筆；Bridge HTTP server 目前使用這批設定。`;
+
+    if (!silent) {
+      setPanelMessage(bridgeElements.messageBox, '已讀取已儲存 Mappings。', 'success');
+    }
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `讀取已儲存 Mappings 失敗：${error.message}`, 'error');
+  }
+}
+
 async function startModbusServer() {
   try {
     const status = await window.modbusSimulator.startServer(getModbusConfigFromForm());
@@ -934,6 +1359,88 @@ async function restartModbusServer() {
     setPanelMessage(modbusElements.messageBox, 'Modbus TCP Server 已重新啟動。', 'success');
   } catch (error) {
     setPanelMessage(modbusElements.messageBox, `重新啟動 Modbus TCP Server 失敗：${error.message}`, 'error');
+  }
+}
+
+async function startBridgeServer() {
+  try {
+    const status = await window.bridgeSimulator.startServer(getBridgeConfigFromForm());
+    renderBridgeStatus(status);
+    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已啟動。', 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `啟動 Bridge API 失敗：${error.message}`, 'error');
+  }
+}
+
+async function stopBridgeServer() {
+  try {
+    const status = await window.bridgeSimulator.stopServer();
+    renderBridgeStatus(status);
+    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已停止。', 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `停止 Bridge API 失敗：${error.message}`, 'error');
+  }
+}
+
+async function restartBridgeServer() {
+  try {
+    const status = await window.bridgeSimulator.restartServer(getBridgeConfigFromForm());
+    renderBridgeStatus(status);
+    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已重新啟動。', 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `重新啟動 Bridge API 失敗：${error.message}`, 'error');
+  }
+}
+
+async function loadBridgeSampleMappings(options = {}) {
+  const { silent = false } = options;
+
+  try {
+    const mappings = await window.bridgeSimulator.getDefaultMappings();
+    renderBridgeMappingTable(mappings);
+    bridgeElements.previewModeText.textContent =
+      `已載入範例 mappings 到表格，共 ${mappings.length} 筆；尚未儲存到 main process。`;
+
+    if (!silent) {
+      setPanelMessage(bridgeElements.messageBox, '已載入範例 Mappings 到表格。', 'success');
+    }
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `載入範例 Mappings 失敗：${error.message}`, 'error');
+  }
+}
+
+function addBridgeMapping() {
+  const drafts = readBridgeMappingDraftsFromTable();
+  drafts.push(createEmptyBridgeMappingDraft());
+  renderBridgeMappingTable(drafts);
+  bridgeElements.previewModeText.textContent = '已新增表格列；目前 Preview 會讀取表格內容，儲存後 Bridge HTTP server 才會使用。';
+}
+
+async function saveBridgeMappings() {
+  try {
+    const mappings = collectBridgeMappingsFromTable();
+    const savedMappings = await window.bridgeSimulator.setMappings(mappings);
+    renderBridgeMappingTable(savedMappings);
+    bridgeElements.previewModeText.textContent =
+      `已儲存 mappings，共 ${savedMappings.length} 筆；Bridge HTTP server 已切換為這批設定。`;
+    setPanelMessage(bridgeElements.messageBox, '已儲存 Mappings 到 main process。', 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `儲存 Mappings 失敗：${error.message}`, 'error');
+  }
+}
+
+async function previewBridgePayload() {
+  try {
+    const mappings = collectBridgeMappingsFromTable();
+    const previewResult = await window.bridgeSimulator.getPreview(mappings);
+    renderBridgePreview(previewResult, {
+      sourceLabel: '表格',
+      totalCount: mappings.length,
+      enabledCount: getEnabledBridgeMappingCount(mappings),
+    });
+    setPanelMessage(bridgeElements.messageBox, 'Bridge Payload Preview 已更新。', 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `產生 Bridge Preview 失敗：${error.message}`, 'error');
   }
 }
 
@@ -1043,6 +1550,36 @@ async function handlePointTableClick(event) {
   await applyModbusPointUpdate(row);
 }
 
+function markBridgeTableAsEdited() {
+  bridgeElements.previewModeText.textContent = '目前編輯的是表格 mappings；產生 Preview 會直接使用表格內容，儲存後 Bridge HTTP server 才會使用。';
+}
+
+function handleBridgeMappingTableInput(event) {
+  if (!event.target.closest('tr[data-bridge-row-id]')) {
+    return;
+  }
+
+  markBridgeTableAsEdited();
+}
+
+function handleBridgeMappingTableClick(event) {
+  const button = event.target.closest('.bridge-delete-mapping-button');
+  if (!button) {
+    return;
+  }
+
+  const row = button.closest('tr[data-bridge-row-id]');
+  if (!row) {
+    return;
+  }
+
+  const drafts = readBridgeMappingDraftsFromTable()
+    .filter((draft) => draft.rowId !== row.dataset.bridgeRowId);
+
+  renderBridgeMappingTable(drafts);
+  markBridgeTableAsEdited();
+}
+
 apiElements.startButton.addEventListener('click', startApiServer);
 apiElements.stopButton.addEventListener('click', stopApiServer);
 apiElements.restartButton.addEventListener('click', restartApiServer);
@@ -1090,9 +1627,30 @@ modbusElements.pointTableBody.addEventListener('input', updatePointDraft);
 modbusElements.pointTableBody.addEventListener('change', updatePointDraftSelection);
 modbusElements.pointTableBody.addEventListener('click', handlePointTableClick);
 
+bridgeElements.startButton.addEventListener('click', startBridgeServer);
+bridgeElements.stopButton.addEventListener('click', stopBridgeServer);
+bridgeElements.restartButton.addEventListener('click', restartBridgeServer);
+bridgeElements.reloadMappingsButton.addEventListener('click', () => {
+  loadBridgeMappingsFromMain();
+});
+bridgeElements.loadMappingsButton.addEventListener('click', () => {
+  loadBridgeSampleMappings();
+});
+bridgeElements.addMappingButton.addEventListener('click', addBridgeMapping);
+bridgeElements.saveMappingsButton.addEventListener('click', saveBridgeMappings);
+bridgeElements.previewButton.addEventListener('click', previewBridgePayload);
+bridgeElements.refreshLogsButton.addEventListener('click', refreshBridgeLogs);
+bridgeElements.hostInput.addEventListener('input', updateBridgeUrlPreview);
+bridgeElements.portInput.addEventListener('input', updateBridgeUrlPreview);
+bridgeElements.pathInput.addEventListener('input', updateBridgeUrlPreview);
+bridgeElements.mappingTableBody.addEventListener('input', handleBridgeMappingTableInput);
+bridgeElements.mappingTableBody.addEventListener('change', handleBridgeMappingTableInput);
+bridgeElements.mappingTableBody.addEventListener('click', handleBridgeMappingTableClick);
+
 async function init() {
   initModeTabs();
   updateUrlPreview();
+  updateBridgeUrlPreview();
   modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();
   modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
   syncModbusGeneratorTypeOptions();
@@ -1104,12 +1662,17 @@ async function init() {
   await refreshModbusStatus();
   await refreshModbusPoints();
   await refreshModbusLogs();
+  await refreshBridgeStatus();
+  await refreshBridgeLogs();
+  await loadBridgeMappingsFromMain({ silent: true });
 
   setInterval(refreshApiStatus, 1500);
   setInterval(refreshApiLogs, 1000);
   setInterval(refreshModbusStatus, 1500);
   setInterval(refreshModbusPoints, 1000);
   setInterval(refreshModbusLogs, 1000);
+  setInterval(refreshBridgeStatus, 2000);
+  setInterval(refreshBridgeLogs, 2000);
 }
 
 init();

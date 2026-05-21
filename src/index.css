@@ -360,6 +360,54 @@ th {
   margin-top: 0;
 }
 
+.bridge-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.bridge-preview-grid pre {
+  min-height: 220px;
+  margin-top: 8px;
+}
+
+.bridge-mapping-table th,
+.bridge-mapping-table td {
+  vertical-align: middle;
+}
+
+.bridge-mapping-table input,
+.bridge-mapping-table select {
+  min-width: 120px;
+}
+
+.bridge-mapping-path-input {
+  min-width: 220px;
+}
+
+.bridge-mapping-address-input {
+  min-width: 120px;
+}
+
+.bridge-mapping-fallback-input {
+  min-width: 180px;
+}
+
+.bridge-mapping-actions-cell {
+  white-space: nowrap;
+}
+
+.checkbox-cell {
+  width: 72px;
+  text-align: center;
+}
+
+.checkbox-cell input {
+  width: 18px;
+  height: 18px;
+}
+
 .feature-list {
   margin: 0;
   padding-left: 22px;
@@ -399,12 +447,14 @@ th {
 }
 
 .modbus-table code,
-.modbus-log-table code {
+.modbus-log-table code,
+.bridge-log-table code {
   white-space: nowrap;
 }
 
 .modbus-table td,
-.modbus-log-table td {
+.modbus-log-table td,
+.bridge-log-table td {
   vertical-align: middle;
 }
 
@@ -532,6 +582,13 @@ th {
   .info-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .bridge-mapping-table input,
+  .bridge-mapping-table select,
+  .bridge-mapping-actions-cell button {
+    min-width: 0;
+    width: 100%;
   }
 
   th,
