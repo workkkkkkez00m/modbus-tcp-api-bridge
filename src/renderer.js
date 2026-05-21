@@ -2,7 +2,9 @@ import './index.css';
 import { toReferenceAddress } from './modbusAddress.js';
 
 const MODE_STORAGE_KEY = 'bms-protocol-mock-lab.activeMode';
+const API_RESPONSE_SOURCE_MODE_STORAGE_KEY = 'bms-protocol-mock-lab.apiResponseSourceMode';
 const SUPPORTED_MODES = ['api', 'modbus', 'bridge'];
+const SUPPORTED_API_RESPONSE_SOURCE_MODES = ['manual', 'bridge'];
 
 const MODBUS_REG_TYPES = {
   coil: {
@@ -100,6 +102,7 @@ const apiElements = {
   pathInput: document.querySelector('#pathInput'),
   delayInput: document.querySelector('#delayInput'),
   scenarioSelect: document.querySelector('#scenarioSelect'),
+  responseSourceSelect: document.querySelector('#apiResponseSourceSelect'),
   startButton: document.querySelector('#startButton'),
   stopButton: document.querySelector('#stopButton'),
   restartButton: document.querySelector('#restartButton'),
@@ -292,6 +295,31 @@ function getApiConfigFromForm() {
     delayMs: readIntOrFallback(apiElements.delayInput.value, 0),
     scenario: apiElements.scenarioSelect.value,
   };
+}
+
+function getSafeApiResponseSourceMode(value) {
+  return SUPPORTED_API_RESPONSE_SOURCE_MODES.includes(value) ? value : 'manual';
+}
+
+function syncApiResponseSourceModeUi(value) {
+  if (!apiElements.responseSourceSelect) {
+    return 'manual';
+  }
+
+  const safeMode = getSafeApiResponseSourceMode(value);
+  apiElements.responseSourceSelect.value = safeMode;
+  return safeMode;
+}
+
+function persistApiResponseSourceMode(value) {
+  const safeMode = syncApiResponseSourceModeUi(value);
+  localStorage.setItem(API_RESPONSE_SOURCE_MODE_STORAGE_KEY, safeMode);
+  return safeMode;
+}
+
+function initApiResponseSourceMode() {
+  const savedMode = localStorage.getItem(API_RESPONSE_SOURCE_MODE_STORAGE_KEY);
+  persistApiResponseSourceMode(savedMode || 'manual');
 }
 
 function getModbusConfigFromForm() {
@@ -1593,6 +1621,9 @@ apiElements.useEditedPayloadButton.addEventListener('click', useEditedPayload);
 apiElements.formatJsonButton.addEventListener('click', formatJson);
 apiElements.resetPayloadButton.addEventListener('click', resetPayloadExample);
 apiElements.payloadEditor.addEventListener('input', () => validatePayloadEditor(false));
+apiElements.responseSourceSelect?.addEventListener('change', () => {
+  persistApiResponseSourceMode(apiElements.responseSourceSelect.value);
+});
 
 apiElements.scenarioSelect.addEventListener('change', async () => {
   await updatePayloadEditor();
@@ -1649,6 +1680,7 @@ bridgeElements.mappingTableBody.addEventListener('click', handleBridgeMappingTab
 
 async function init() {
   initModeTabs();
+  initApiResponseSourceMode();
   updateUrlPreview();
   updateBridgeUrlPreview();
   modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();

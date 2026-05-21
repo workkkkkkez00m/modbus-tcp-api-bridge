@@ -76,6 +76,25 @@
         </section>
 
         <section class="card">
+          <h2>API 回應來源</h2>
+
+          <div class="grid">
+            <label class="full">
+              回應來源模式
+              <select id="apiResponseSourceSelect">
+                <option value="manual">Scenario / Payload Editor</option>
+                <option value="bridge">Modbus Bridge</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="response-source-help">
+            <p><strong>Scenario / Payload Editor：</strong>使用目前 API Simulator 的 scenario 或自訂 payload。</p>
+            <p><strong>Modbus Bridge：</strong>使用 Modbus Simulator 目前點位，依 Bridge Mapping 產生 API JSON。</p>
+          </div>
+        </section>
+
+        <section class="card">
           <h2>Payload 編輯器</h2>
           <p class="muted">
             可直接編輯 JSON Payload，套用後會切換為 <code>custom</code> scenario。
