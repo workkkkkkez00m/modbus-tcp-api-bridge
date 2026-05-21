@@ -102,6 +102,28 @@ Coil 000001 = true
 此功能不是 Coil / Discrete Input mirror。
 它只在 Coil 寫入或 Coil 手動套用時，單向更新 Discrete Input。
 
+## Modbus → API Bridge Preset
+
+目前只保留最小必要 preset：
+
+- `Sample Boolean`
+  - `sample.coil1 <= coil protocolAddress 0`
+  - `sample.discreteInput1 <= discreteInput protocolAddress 0`
+- `Plumbing Pump Status`
+  - `plumbing.pumps.pump1.run <= discreteInput protocolAddress 0`
+  - `plumbing.pumps.pump1.fault <= discreteInput protocolAddress 1`
+  - ...
+  - `plumbing.pumps.pump11.run <= discreteInput protocolAddress 20`
+  - `plumbing.pumps.pump11.fault <= discreteInput protocolAddress 21`
+
+### 一般流程
+
+1. 啟動 Modbus TCP Simulator。
+2. 設定點位與相容模式。
+3. 到 Bridge Mapping 進階設定選擇 preset，必要時再微調 mapping。
+4. 回 API Simulator，將 API 回應來源切到 Modbus Bridge。
+5. 啟動 API Server。
+
 ## Roadmap
 
 ### R1

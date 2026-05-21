@@ -390,6 +390,113 @@ th {
   margin-top: 16px;
 }
 
+.bridge-intro-card {
+  padding-bottom: 14px;
+}
+
+.bridge-callout {
+  border: 1px solid #2a3a52;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background:
+    linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.98));
+}
+
+.bridge-callout p {
+  margin: 0;
+  color: #dbe7ff;
+  line-height: 1.7;
+}
+
+.bridge-callout p + p {
+  margin-top: 6px;
+}
+
+.bridge-callout strong {
+  color: #ffffff;
+}
+
+.bridge-workflow-box {
+  margin-top: 16px;
+}
+
+.bridge-workflow-box #bridgePreviewModeText {
+  color: #dbe7ff;
+  line-height: 1.6;
+}
+
+.bridge-advanced-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.advanced-details {
+  border-radius: 18px;
+  background: #0b1220;
+}
+
+.advanced-details[open] {
+  background: #0d1526;
+}
+
+.advanced-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  cursor: pointer;
+  color: #e5e7eb;
+  font-size: 16px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-summary::after {
+  content: '展開';
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.advanced-details[open] .advanced-summary::after {
+  content: '收合';
+}
+
+.advanced-note {
+  margin: 0;
+  padding: 0 18px 18px;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 0 18px 18px;
+}
+
+.advanced-panel {
+  border: 1px solid #1f2a3a;
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.advanced-panel h3 {
+  margin-top: 0;
+}
+
+.advanced-log-panel .table-wrap {
+  margin-top: 8px;
+}
+
 .bridge-preview-grid pre {
   min-height: 220px;
   margin-top: 8px;
@@ -612,6 +719,19 @@ th {
   .bridge-mapping-actions-cell button {
     min-width: 0;
     width: 100%;
+  }
+
+  .advanced-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px 16px;
+  }
+
+  .advanced-summary {
+    padding: 16px;
+  }
+
+  .advanced-note {
+    padding: 0 16px 16px;
   }
 
   th,

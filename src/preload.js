@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('mockMeterApi', {
   getServerStatus: () => ipcRenderer.invoke('mock-meter-api:get-server-status'),
   setScenario: (scenario) => ipcRenderer.invoke('mock-meter-api:set-scenario', scenario),
   getScenario: () => ipcRenderer.invoke('mock-meter-api:get-scenario'),
+  getResponseSourceMode: () => ipcRenderer.invoke('api:get-response-source-mode'),
+  setResponseSourceMode: (mode) => ipcRenderer.invoke('api:set-response-source-mode', mode),
   setCustomPayloadText: (customPayloadText) =>
     ipcRenderer.invoke('mock-meter-api:set-custom-payload-text', customPayloadText),
   getCustomPayloadText: () => ipcRenderer.invoke('mock-meter-api:get-custom-payload-text'),

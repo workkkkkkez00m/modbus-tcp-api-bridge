@@ -29,6 +29,28 @@ function normalizePath(path) {
     return path.startsWith('/') ? path : `/${path}`;
 }
 
+function normalizeResponseSourceMode(mode) {
+    return mode === 'bridge' ? 'bridge' : 'manual';
+}
+
+function toMissingMappingCount(buildResult) {
+    const missingMappings = buildResult?.diagnostics?.missingMappings;
+    return Array.isArray(missingMappings) ? missingMappings.length : 0;
+}
+
+function resolveBridgePayload(buildResult) {
+    if (
+        buildResult
+        && typeof buildResult === 'object'
+        && !Array.isArray(buildResult)
+        && Object.hasOwn(buildResult, 'payload')
+    ) {
+        return buildResult.payload;
+    }
+
+    return buildResult;
+}
+
 function createPayload({ includeTotal = true } = {}) {
     const t = Date.now() / 1000;
 
@@ -83,8 +105,14 @@ function createInvalidSchemaPayload() {
 }
 
 class MockMeterApiServer {
-    constructor() {
+    constructor({ getResponseSourceMode, getBridgePayload } = {}) {
         this.server = null;
+        this.getResponseSourceMode = typeof getResponseSourceMode === 'function'
+            ? getResponseSourceMode
+            : () => 'manual';
+        this.getBridgePayload = typeof getBridgePayload === 'function'
+            ? getBridgePayload
+            : async () => ({ payload: createPayload({ includeTotal: true }) });
         this.config = {
             host: '127.0.0.1',
             port: 3101,
@@ -152,7 +180,9 @@ class MockMeterApiServer {
 
         await new Promise((resolve, reject) => {
             const server = http.createServer((req, res) => {
-                this.handleRequest(req, res);
+                Promise.resolve(this.handleRequest(req, res)).catch((error) => {
+                    this.sendInternalError(req, res, error);
+                });
             });
 
             server.on('error', reject);
@@ -205,12 +235,17 @@ class MockMeterApiServer {
         };
     }
 
-    handleRequest(req, res) {
+    async handleRequest(req, res) {
         const requestUrl = new URL(req.url, `http://${this.config.host}:${this.config.port}`);
         const pathname = requestUrl.pathname;
+        const sourceMode = normalizeResponseSourceMode(await this.getResponseSourceMode());
 
         if (req.method !== 'GET') {
-            this.sendJson(req, res, 405, { error: 'method not allowed' }, 'method-not-allowed');
+            this.sendJson(req, res, 405, { error: 'method not allowed' }, {
+                scenario: 'method-not-allowed',
+                sourceMode,
+                message: 'method-not-allowed',
+            });
             return;
         }
 
@@ -219,12 +254,20 @@ class MockMeterApiServer {
                 ok: true,
                 service: 'mock-meter-api',
                 timestamp: nowIso(),
-            }, 'health');
+            }, {
+                scenario: 'health',
+                sourceMode,
+                message: 'health',
+            });
             return;
         }
 
         if (pathname !== this.config.path) {
-            this.sendJson(req, res, 404, { error: 'not found' }, 'not-found');
+            this.sendJson(req, res, 404, { error: 'not found' }, {
+                scenario: 'not-found',
+                sourceMode,
+                message: 'not-found',
+            });
             return;
         }
 
@@ -238,40 +281,97 @@ class MockMeterApiServer {
             : this.config.delayMs;
 
         setTimeout(() => {
-            this.respondEnergy(req, res, scenario);
+            Promise.resolve(this.respondEnergy(req, res, {
+                scenario,
+                sourceMode,
+            })).catch((error) => {
+                this.sendInternalError(req, res, error, {
+                    scenario,
+                    sourceMode,
+                });
+            });
         }, delayMs);
     }
 
-    respondEnergy(req, res, scenario) {
+    async respondEnergy(req, res, { scenario, sourceMode }) {
+        if (sourceMode === 'bridge') {
+            const buildResult = await this.getBridgePayload();
+            const payload = resolveBridgePayload(buildResult);
+            const missingMappingCount = toMissingMappingCount(buildResult);
+            const message = missingMappingCount > 0
+                ? `bridge-payload missingMappings=${missingMappingCount}`
+                : 'bridge-payload';
+
+            this.sendJson(req, res, 200, payload, {
+                scenario,
+                sourceMode,
+                missingMappingCount,
+                message,
+            });
+            return;
+        }
+
         if (scenario === 'custom') {
-            this.sendRaw(req, res, 200, this.config.customPayloadText || '', scenario);
+            this.sendRaw(req, res, 200, this.config.customPayloadText || '', {
+                scenario,
+                sourceMode,
+            });
             return;
         }
         if (scenario === 'http-500') {
-            this.sendJson(req, res, 500, { error: 'mock http 500' }, scenario);
+            this.sendJson(req, res, 500, { error: 'mock http 500' }, {
+                scenario,
+                sourceMode,
+            });
             return;
         }
 
         if (scenario === 'invalid-json') {
             const body = '{"office": {"power": 100.3}, "residential": ';
-            this.sendRaw(req, res, 200, body, scenario);
+            this.sendRaw(req, res, 200, body, {
+                scenario,
+                sourceMode,
+            });
             return;
         }
 
         if (scenario === 'invalid-schema') {
-            this.sendJson(req, res, 200, createInvalidSchemaPayload(), scenario);
+            this.sendJson(req, res, 200, createInvalidSchemaPayload(), {
+                scenario,
+                sourceMode,
+            });
             return;
         }
 
         if (scenario === 'no-total') {
-            this.sendJson(req, res, 200, createPayload({ includeTotal: false }), scenario);
+            this.sendJson(req, res, 200, createPayload({ includeTotal: false }), {
+                scenario,
+                sourceMode,
+            });
             return;
         }
 
-        this.sendJson(req, res, 200, createPayload({ includeTotal: true }), scenario);
+        this.sendJson(req, res, 200, createPayload({ includeTotal: true }), {
+            scenario,
+            sourceMode,
+        });
     }
 
-    sendJson(req, res, statusCode, payload, scenario) {
+    sendInternalError(req, res, error, logMeta = {}) {
+        if (res.writableEnded) {
+            return;
+        }
+
+        this.sendJson(req, res, 500, {
+            error: 'internal server error',
+            message: error instanceof Error ? error.message : 'unknown error',
+        }, {
+            ...logMeta,
+            message: error instanceof Error ? error.message : 'unknown error',
+        });
+    }
+
+    sendJson(req, res, statusCode, payload, logMeta = {}) {
         const body = JSON.stringify(payload, null, 2);
 
         res.writeHead(statusCode, {
@@ -281,10 +381,10 @@ class MockMeterApiServer {
         });
 
         res.end(body);
-        this.addLog(req, scenario, statusCode);
+        this.addLog(req, statusCode, logMeta);
     }
 
-    sendRaw(req, res, statusCode, body, scenario) {
+    sendRaw(req, res, statusCode, body, logMeta = {}) {
         res.writeHead(statusCode, {
             'Content-Type': 'application/json; charset=utf-8',
             'Access-Control-Allow-Origin': '*',
@@ -292,22 +392,27 @@ class MockMeterApiServer {
         });
 
         res.end(body);
-        this.addLog(req, scenario, statusCode);
+        this.addLog(req, statusCode, logMeta);
     }
 
-    addLog(req, scenario, statusCode) {
+    addLog(req, statusCode, logMeta = {}) {
         const item = {
             time: nowIso(),
             method: req.method,
             path: req.url,
-            scenario,
+            scenario: String(logMeta.scenario || ''),
+            sourceMode: normalizeResponseSourceMode(logMeta.sourceMode),
             statusCode,
+            missingMappingCount: toInt(logMeta.missingMappingCount, 0),
+            message: String(logMeta.message || ''),
         };
 
         this.logs.unshift(item);
         this.logs = this.logs.slice(0, 100);
 
-        console.log(`[${item.time}] ${item.method} ${item.path} scenario=${scenario} status=${statusCode}`);
+        console.log(
+            `[${item.time}] ${item.method} ${item.path} scenario=${item.scenario} sourceMode=${item.sourceMode} status=${statusCode} missing=${item.missingMappingCount} ${item.message}`
+        );
     }
 }
 

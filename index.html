@@ -19,7 +19,7 @@
     <nav class="mode-tabs" aria-label="Simulator modes">
       <button class="mode-tab active" data-mode="api">API 模擬器</button>
       <button class="mode-tab" data-mode="modbus">Modbus TCP 模擬器</button>
-      <button class="mode-tab" data-mode="bridge">Modbus → API Bridge</button>
+      <button class="mode-tab" data-mode="bridge">Bridge Mapping 進階設定</button>
     </nav>
 
     <section id="apiPanel" class="mode-panel active" data-mode-panel="api">
@@ -448,45 +448,23 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
 
     <section id="bridgePanel" class="mode-panel" data-mode-panel="bridge">
       <main class="layout">
-        <section class="card">
-          <h2>Bridge Server 控制</h2>
-          <p class="muted">Bridge API 由 main process 管理，renderer 只透過 IPC 操作。</p>
-
-          <div class="grid">
-            <label>
-              Host
-              <input id="bridgeHostInput" value="127.0.0.1" />
-            </label>
-
-            <label>
-              Port
-              <input id="bridgePortInput" type="number" value="3201" />
-            </label>
-
-            <label class="full">
-              API Path
-              <input id="bridgePathInput" value="/api/bridge" />
-            </label>
+        <section class="card full-width bridge-intro-card">
+          <div class="section-title-row">
+            <div>
+              <h2>Bridge Mapping 進階設定</h2>
+              <p class="muted">一般測試請回到 API Simulator 選擇 Modbus Bridge；此頁聚焦 mapping、Preview 與 Diagnostics。</p>
+            </div>
           </div>
 
-          <div class="button-row">
-            <button id="bridgeStartButton">啟動 Bridge API</button>
-            <button id="bridgeStopButton" class="secondary">停止 Bridge API</button>
-            <button id="bridgeRestartButton" class="secondary">重新啟動 Bridge API</button>
+          <div class="bridge-callout">
+            <p><strong>一般測試請在 API Simulator 的「API 回應來源」選擇 Modbus Bridge。</strong></p>
+            <p>此頁只用於設定 Modbus points 轉 API JSON 的 mapping。</p>
           </div>
 
-          <div class="info-box">
+          <div class="info-box bridge-workflow-box">
             <div class="info-row">
-              <span class="info-label">Status</span>
-              <span id="bridgeServerStatus" class="badge badge-stopped status-stopped">已停止</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Current URL</span>
-              <code id="bridgeCurrentUrl">http://127.0.0.1:3201/api/bridge</code>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Preview</span>
-              <span id="bridgePreviewModeText">使用 default mappings，按鈕觸發更新。</span>
+              <span class="info-label">目前狀態</span>
+              <span id="bridgePreviewModeText">目前使用預設 mappings；可先調整表格，再用 Preview 檢查輸出。</span>
             </div>
           </div>
 
@@ -496,16 +474,16 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
         <section class="card full-width">
           <div class="section-title-row">
             <div>
-              <h2>Mapping Table Editor</h2>
+              <h2>Mapping Table</h2>
               <p class="muted">Bridge mapping 內部索引固定使用 regType + protocolAddress，不使用 point.id 與 Reference Address。</p>
             </div>
           </div>
 
           <div class="button-row">
-            <button id="bridgeReloadMappingsButton" class="secondary">讀取已儲存 Mappings</button>
-            <button id="bridgeLoadMappingsButton" class="secondary">載入範例 Mappings</button>
+            <button id="bridgeReloadMappingsButton" class="secondary">讀取已儲存 Mapping</button>
+            <button id="bridgeLoadMappingsButton" class="secondary">載入 Sample Mapping</button>
             <button id="bridgeAddMappingButton">新增 Mapping</button>
-            <button id="bridgeSaveMappingsButton" class="secondary">儲存 Mappings</button>
+            <button id="bridgeSaveMappingsButton" class="secondary">儲存 Mapping</button>
           </div>
 
           <p class="help-text">JSON Path 僅支援物件點號路徑，例如 <code>site.power.total</code>；不支援 array path。</p>
@@ -518,25 +496,26 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
                   <th>JSON Path</th>
                   <th>來源類型</th>
                   <th>Protocol Address</th>
-                  <th>轉換型別</th>
+                  <th>轉換類型</th>
                   <th>Fallback</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody id="bridgeMappingTableBody">
                 <tr>
-                  <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入範例。</td>
+                  <td colspan="7" class="empty">目前沒有 Mapping，可先讀取已儲存設定或載入 Sample Mapping。</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <section class="card">
-          <h2>Preview</h2>
-          <p class="muted">產生 Preview 時直接使用目前表格 mappings；未儲存也可預覽。</p>
-
-          <div class="button-row">
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Payload Preview</h2>
+              <p class="muted">Preview 會直接使用目前表格內容；Diagnostics 用來確認成功套用與缺漏的 mappings。</p>
+            </div>
             <button id="bridgePreviewButton">產生 Preview</button>
           </div>
 
@@ -557,35 +536,83 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
           </div>
         </section>
 
-        <section class="card full-width">
-          <div class="section-title-row">
-            <div>
-              <h2>Request Log</h2>
-              <p class="muted">顯示 Bridge server logs。</p>
-            </div>
-            <button id="bridgeRefreshLogsButton" class="secondary">重新整理 Logs</button>
-          </div>
+        <section class="card full-width bridge-advanced-card">
+          <details class="advanced-details">
+            <summary class="advanced-summary">Advanced：獨立 Bridge API Server</summary>
+            <p class="advanced-note">只有在需要單獨測試 Bridge HTTP endpoint 或檢查 Bridge Request Log 時才使用。既有 `mockBridgeApiServer.js` 與 Bridge IPC 保留不變。</p>
 
-          <div class="table-wrap">
-            <table class="bridge-log-table">
-              <thead>
-                <tr>
-                  <th>時間</th>
-                  <th>Method</th>
-                  <th>Path</th>
-                  <th>Status</th>
-                  <th>Mappings</th>
-                  <th>Missing</th>
-                  <th>訊息</th>
-                </tr>
-              </thead>
-              <tbody id="bridgeLogTableBody">
-                <tr>
-                  <td colspan="7" class="empty">目前沒有 Bridge Request Log。</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+            <div class="advanced-grid">
+              <section class="advanced-panel">
+                <h3>Bridge Server Control</h3>
+                <p class="muted">Bridge API 仍由 main process 管理；renderer 只透過 IPC 操作。</p>
+
+                <div class="grid">
+                  <label>
+                    Host
+                    <input id="bridgeHostInput" value="127.0.0.1" />
+                  </label>
+
+                  <label>
+                    Port
+                    <input id="bridgePortInput" type="number" value="3201" />
+                  </label>
+
+                  <label class="full">
+                    API Path
+                    <input id="bridgePathInput" value="/api/bridge" />
+                  </label>
+                </div>
+
+                <div class="button-row">
+                  <button id="bridgeStartButton">啟動 Bridge API</button>
+                  <button id="bridgeStopButton" class="secondary">停止 Bridge API</button>
+                  <button id="bridgeRestartButton" class="secondary">重新啟動 Bridge API</button>
+                </div>
+
+                <div class="info-box">
+                  <div class="info-row">
+                    <span class="info-label">Status</span>
+                    <span id="bridgeServerStatus" class="badge badge-stopped status-stopped">已停止</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Current URL</span>
+                    <code id="bridgeCurrentUrl">http://127.0.0.1:3201/api/bridge</code>
+                  </div>
+                </div>
+              </section>
+
+              <section class="advanced-panel advanced-log-panel">
+                <div class="section-title-row">
+                  <div>
+                    <h3>Bridge Request Log</h3>
+                    <p class="muted">僅顯示獨立 Bridge API Server 的 request log。</p>
+                  </div>
+                  <button id="bridgeRefreshLogsButton" class="secondary">重新整理 Logs</button>
+                </div>
+
+                <div class="table-wrap">
+                  <table class="bridge-log-table">
+                    <thead>
+                      <tr>
+                        <th>時間</th>
+                        <th>Method</th>
+                        <th>Path</th>
+                        <th>Status</th>
+                        <th>Mappings</th>
+                        <th>Missing</th>
+                        <th>訊息</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bridgeLogTableBody">
+                      <tr>
+                        <td colspan="7" class="empty">目前沒有 Bridge Request Log。</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </details>
         </section>
       </main>
     </section>

@@ -12,7 +12,6 @@ if (started) {
   app.quit();
 }
 
-const mockServer = new MockMeterApiServer();
 const modbusServer = new MockModbusTcpServer();
 
 function cloneJsonValue(value) {
@@ -32,10 +31,32 @@ function normalizeBridgeMappings(mappings) {
 }
 
 let bridgeMappings = getDefaultBridgeMappings();
+let apiResponseSourceMode = 'manual';
+
+function normalizeApiResponseSourceMode(mode) {
+  return mode === 'bridge' ? 'bridge' : 'manual';
+}
+
+function getCurrentBridgeMappings() {
+  return normalizeBridgeMappings(bridgeMappings);
+}
+
+function getApiBridgePayload() {
+  return buildBridgePayload({
+    points: modbusServer.getPoints(),
+    mappings: getCurrentBridgeMappings(),
+    includeTimestamp: bridgeDefaultConfig.includeTimestamp,
+  });
+}
+
+const mockServer = new MockMeterApiServer({
+  getResponseSourceMode: () => apiResponseSourceMode,
+  getBridgePayload: () => getApiBridgePayload(),
+});
 
 const bridgeServer = new MockBridgeApiServer({
   getPoints: () => modbusServer.getPoints(),
-  getMappings: () => normalizeBridgeMappings(bridgeMappings),
+  getMappings: () => getCurrentBridgeMappings(),
   buildPayload: ({ points, mappings, includeTimestamp } = {}) => buildBridgePayload({
     points,
     mappings,
@@ -146,6 +167,15 @@ function registerIpc() {
     return mockServer.getLogs();
   });
 
+  ipcMain.handle('api:get-response-source-mode', async () => {
+    return apiResponseSourceMode;
+  });
+
+  ipcMain.handle('api:set-response-source-mode', async (_event, mode) => {
+    apiResponseSourceMode = normalizeApiResponseSourceMode(mode);
+    return apiResponseSourceMode;
+  });
+
   ipcMain.handle('modbus:start-server', async (_event, config) => {
     return modbusServer.start(config);
   });
@@ -202,7 +232,7 @@ function registerIpc() {
     const points = modbusServer.getPoints();
     const previewMappings = Array.isArray(mappings)
       ? normalizeBridgeMappings(mappings)
-      : normalizeBridgeMappings(bridgeMappings);
+      : getCurrentBridgeMappings();
 
     return buildBridgePayload({
       points,

@@ -1,4 +1,5 @@
 import './index.css';
+import { bridgeDefaultPresets } from './bridgeDefaultConfig.js';
 import { toReferenceAddress } from './modbusAddress.js';
 
 const MODE_STORAGE_KEY = 'bms-protocol-mock-lab.activeMode';
@@ -85,7 +86,7 @@ const BRIDGE_EMPTY_LOG_ROW = `
 
 const BRIDGE_EMPTY_MAPPING_ROW = `
   <tr>
-    <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入範例。</td>
+    <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入 Preset。</td>
   </tr>
 `;
 
@@ -95,6 +96,11 @@ const BRIDGE_TRANSFORM_TYPES = [
   { value: 'boolean', label: 'boolean' },
   { value: 'string', label: 'string' },
 ];
+
+const BRIDGE_PRESET_MAP = new Map(
+  bridgeDefaultPresets.map((preset) => [preset.id, preset])
+);
+const DEFAULT_BRIDGE_PRESET_ID = bridgeDefaultPresets[0]?.id ?? '';
 
 const apiElements = {
   hostInput: document.querySelector('#hostInput'),
@@ -163,6 +169,7 @@ const bridgeElements = {
   mappingTableBody: document.querySelector('#bridgeMappingTableBody'),
   reloadMappingsButton: document.querySelector('#bridgeReloadMappingsButton'),
   loadMappingsButton: document.querySelector('#bridgeLoadMappingsButton'),
+  presetSelect: null,
   addMappingButton: document.querySelector('#bridgeAddMappingButton'),
   saveMappingsButton: document.querySelector('#bridgeSaveMappingsButton'),
   previewButton: document.querySelector('#bridgePreviewButton'),
@@ -260,6 +267,53 @@ function ensureModbusFeedbackMappingModeField() {
   return select;
 }
 
+function getBridgePresetById(presetId) {
+  return BRIDGE_PRESET_MAP.get(presetId) || bridgeDefaultPresets[0] || null;
+}
+
+function cloneBridgePresetMappings(mappings) {
+  return JSON.parse(JSON.stringify(Array.isArray(mappings) ? mappings : []));
+}
+
+function ensureBridgePresetField() {
+  const buttonRow = document.querySelector('#bridgePanel .button-row');
+  if (!buttonRow) {
+    return document.querySelector('#bridgePresetSelect');
+  }
+
+  if (bridgeElements.loadMappingsButton) {
+    bridgeElements.loadMappingsButton.textContent = '載入 Preset';
+  }
+
+  let select = document.querySelector('#bridgePresetSelect');
+  if (select) {
+    return select;
+  }
+
+  const label = document.createElement('label');
+  label.className = 'stacked-field';
+
+  const labelText = document.createElement('span');
+  labelText.className = 'label-text';
+  labelText.textContent = 'Bridge Preset 預設組';
+
+  select = document.createElement('select');
+  select.id = 'bridgePresetSelect';
+  renderStaticSelectOptions(
+    select,
+    bridgeDefaultPresets.map((preset) => ({
+      value: preset.id,
+      label: preset.label,
+    })),
+    DEFAULT_BRIDGE_PRESET_ID
+  );
+
+  label.append(labelText, '\n', select);
+  buttonRow.prepend(label);
+
+  return select;
+}
+
 function readIntOrFallback(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -317,9 +371,22 @@ function persistApiResponseSourceMode(value) {
   return safeMode;
 }
 
-function initApiResponseSourceMode() {
+async function setApiResponseSourceMode(value) {
+  const safeMode = getSafeApiResponseSourceMode(value);
+  const nextMode = await window.mockMeterApi.setResponseSourceMode(safeMode);
+  return persistApiResponseSourceMode(nextMode);
+}
+
+async function initApiResponseSourceMode() {
   const savedMode = localStorage.getItem(API_RESPONSE_SOURCE_MODE_STORAGE_KEY);
-  persistApiResponseSourceMode(savedMode || 'manual');
+
+  if (savedMode !== null) {
+    await setApiResponseSourceMode(savedMode);
+    return;
+  }
+
+  const mode = await window.mockMeterApi.getResponseSourceMode();
+  persistApiResponseSourceMode(mode);
 }
 
 function getModbusConfigFromForm() {
@@ -668,6 +735,21 @@ function collectBridgeMappingsFromTable() {
 
 function getEnabledBridgeMappingCount(mappings) {
   return mappings.filter((mapping) => mapping?.enabled !== false).length;
+}
+
+function setBridgePreviewModeText(message) {
+  bridgeElements.previewModeText.textContent = message;
+}
+
+function updateBridgePresetSelectionHint() {
+  const preset = getBridgePresetById(bridgeElements.presetSelect?.value);
+  if (!preset) {
+    return;
+  }
+
+  setBridgePreviewModeText(
+    `目前已選擇 Preset「${preset.label}」；按下「載入 Preset」後，會以 ${preset.mappings.length} 筆 mapping 覆蓋目前表格，並可再自行微調。`
+  );
 }
 
 function updateUrlPreview() {
@@ -1104,7 +1186,7 @@ function renderBridgeLogs(logs) {
 
 function renderBridgePreview(previewResult, options = {}) {
   const {
-    sourceLabel = '表格',
+    sourceLabel = '目前表格',
     totalCount = 0,
     enabledCount = totalCount,
   } = options;
@@ -1119,8 +1201,9 @@ function renderBridgePreview(previewResult, options = {}) {
 
   bridgeElements.payloadPreview.textContent = formatJsonPreview(payload);
   bridgeElements.diagnosticsPreview.textContent = formatJsonPreview(diagnostics);
-  bridgeElements.previewModeText.textContent =
-    `使用${sourceLabel} mappings，共 ${totalCount} 筆（啟用 ${enabledCount} 筆）；已套用 ${appliedCount} 筆，缺少 ${missingCount} 筆。`;
+  setBridgePreviewModeText(
+    `Preview 使用${sourceLabel} mappings，共 ${totalCount} 筆，啟用 ${enabledCount} 筆；成功套用 ${appliedCount} 筆，缺少來源 ${missingCount} 筆。`
+  );
 }
 
 function renderModbusPointRow(point) {
@@ -1349,14 +1432,15 @@ async function loadBridgeMappingsFromMain(options = {}) {
   try {
     const mappings = await window.bridgeSimulator.getMappings();
     renderBridgeMappingTable(mappings);
-    bridgeElements.previewModeText.textContent =
-      `已從 main process 讀取 mappings，共 ${mappings.length} 筆；Bridge HTTP server 目前使用這批設定。`;
+    setBridgePreviewModeText(
+      `已讀取 main process 中的 mappings，共 ${mappings.length} 筆；API Simulator 若選擇 Modbus Bridge，會使用這批設定。`
+    );
 
     if (!silent) {
-      setPanelMessage(bridgeElements.messageBox, '已讀取已儲存 Mappings。', 'success');
+      setPanelMessage(bridgeElements.messageBox, '已讀取已儲存 Mapping。', 'success');
     }
   } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `讀取已儲存 Mappings 失敗：${error.message}`, 'error');
+    setPanelMessage(bridgeElements.messageBox, `讀取已儲存 Mapping 失敗：${error.message}`, 'error');
   }
 }
 
@@ -1420,20 +1504,26 @@ async function restartBridgeServer() {
   }
 }
 
-async function loadBridgeSampleMappings(options = {}) {
+async function loadBridgePreset(options = {}) {
   const { silent = false } = options;
 
   try {
-    const mappings = await window.bridgeSimulator.getDefaultMappings();
+    const preset = getBridgePresetById(bridgeElements.presetSelect?.value);
+    if (!preset) {
+      throw new Error('目前沒有可用的 Bridge preset。');
+    }
+
+    const mappings = cloneBridgePresetMappings(preset.mappings);
     renderBridgeMappingTable(mappings);
-    bridgeElements.previewModeText.textContent =
-      `已載入範例 mappings 到表格，共 ${mappings.length} 筆；尚未儲存到 main process。`;
+    setBridgePreviewModeText(
+      `已載入 Preset「${preset.label}」到表格，共 ${mappings.length} 筆；目前仍未儲存到 main process。`
+    );
 
     if (!silent) {
-      setPanelMessage(bridgeElements.messageBox, '已載入範例 Mappings 到表格。', 'success');
+      setPanelMessage(bridgeElements.messageBox, `已載入 Preset「${preset.label}」。`, 'success');
     }
   } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `載入範例 Mappings 失敗：${error.message}`, 'error');
+    setPanelMessage(bridgeElements.messageBox, `載入 Preset 失敗：${error.message}`, 'error');
   }
 }
 
@@ -1441,7 +1531,9 @@ function addBridgeMapping() {
   const drafts = readBridgeMappingDraftsFromTable();
   drafts.push(createEmptyBridgeMappingDraft());
   renderBridgeMappingTable(drafts);
-  bridgeElements.previewModeText.textContent = '已新增表格列；目前 Preview 會讀取表格內容，儲存後 Bridge HTTP server 才會使用。';
+  setBridgePreviewModeText(
+    '已新增一列 Mapping；Preview 會直接讀取目前表格內容，儲存後 API Simulator 與獨立 Bridge API 才會套用。'
+  );
 }
 
 async function saveBridgeMappings() {
@@ -1449,11 +1541,12 @@ async function saveBridgeMappings() {
     const mappings = collectBridgeMappingsFromTable();
     const savedMappings = await window.bridgeSimulator.setMappings(mappings);
     renderBridgeMappingTable(savedMappings);
-    bridgeElements.previewModeText.textContent =
-      `已儲存 mappings，共 ${savedMappings.length} 筆；Bridge HTTP server 已切換為這批設定。`;
-    setPanelMessage(bridgeElements.messageBox, '已儲存 Mappings 到 main process。', 'success');
+    setBridgePreviewModeText(
+      `已儲存 mappings，共 ${savedMappings.length} 筆；API Simulator 的 Modbus Bridge 與獨立 Bridge API 會共用這批設定。`
+    );
+    setPanelMessage(bridgeElements.messageBox, '已儲存 Mapping 到 main process。', 'success');
   } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `儲存 Mappings 失敗：${error.message}`, 'error');
+    setPanelMessage(bridgeElements.messageBox, `儲存 Mapping 失敗：${error.message}`, 'error');
   }
 }
 
@@ -1462,7 +1555,7 @@ async function previewBridgePayload() {
     const mappings = collectBridgeMappingsFromTable();
     const previewResult = await window.bridgeSimulator.getPreview(mappings);
     renderBridgePreview(previewResult, {
-      sourceLabel: '表格',
+      sourceLabel: '目前表格',
       totalCount: mappings.length,
       enabledCount: getEnabledBridgeMappingCount(mappings),
     });
@@ -1579,7 +1672,9 @@ async function handlePointTableClick(event) {
 }
 
 function markBridgeTableAsEdited() {
-  bridgeElements.previewModeText.textContent = '目前編輯的是表格 mappings；產生 Preview 會直接使用表格內容，儲存後 Bridge HTTP server 才會使用。';
+  setBridgePreviewModeText(
+    '目前正在編輯表格 mappings；Preview 會直接讀取表格內容，儲存後 API Simulator 與獨立 Bridge API 才會套用。'
+  );
 }
 
 function handleBridgeMappingTableInput(event) {
@@ -1621,8 +1716,14 @@ apiElements.useEditedPayloadButton.addEventListener('click', useEditedPayload);
 apiElements.formatJsonButton.addEventListener('click', formatJson);
 apiElements.resetPayloadButton.addEventListener('click', resetPayloadExample);
 apiElements.payloadEditor.addEventListener('input', () => validatePayloadEditor(false));
-apiElements.responseSourceSelect?.addEventListener('change', () => {
-  persistApiResponseSourceMode(apiElements.responseSourceSelect.value);
+apiElements.responseSourceSelect?.addEventListener('change', async () => {
+  try {
+    await setApiResponseSourceMode(apiElements.responseSourceSelect.value);
+  } catch (error) {
+    setPanelMessage(apiElements.messageBox, `切換 API Response Source 失敗：${error.message}`, 'error');
+    const currentMode = await window.mockMeterApi.getResponseSourceMode();
+    persistApiResponseSourceMode(currentMode);
+  }
 });
 
 apiElements.scenarioSelect.addEventListener('change', async () => {
@@ -1665,7 +1766,7 @@ bridgeElements.reloadMappingsButton.addEventListener('click', () => {
   loadBridgeMappingsFromMain();
 });
 bridgeElements.loadMappingsButton.addEventListener('click', () => {
-  loadBridgeSampleMappings();
+  loadBridgePreset();
 });
 bridgeElements.addMappingButton.addEventListener('click', addBridgeMapping);
 bridgeElements.saveMappingsButton.addEventListener('click', saveBridgeMappings);
@@ -1680,11 +1781,12 @@ bridgeElements.mappingTableBody.addEventListener('click', handleBridgeMappingTab
 
 async function init() {
   initModeTabs();
-  initApiResponseSourceMode();
+  await initApiResponseSourceMode();
   updateUrlPreview();
   updateBridgeUrlPreview();
   modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();
   modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
+  bridgeElements.presetSelect = ensureBridgePresetField();
   syncModbusGeneratorTypeOptions();
 
   await refreshApiStatus();
@@ -1697,6 +1799,7 @@ async function init() {
   await refreshBridgeStatus();
   await refreshBridgeLogs();
   await loadBridgeMappingsFromMain({ silent: true });
+  bridgeElements.presetSelect?.addEventListener('change', updateBridgePresetSelectionHint);
 
   setInterval(refreshApiStatus, 1500);
   setInterval(refreshApiLogs, 1000);
