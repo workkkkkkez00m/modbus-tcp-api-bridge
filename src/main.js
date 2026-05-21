@@ -11,7 +11,6 @@ import {
   saveUserBridgePreset,
 } from './bridgePresetStore.js';
 import { MockMeterApiServer } from './mockMeterApiServer.js';
-import { MockBridgeApiServer } from './mockBridgeApiServer.js';
 import { MockModbusTcpServer } from './mockModbusTcpServer.js';
 
 if (started) {
@@ -70,16 +69,6 @@ function getApiBridgePayload() {
 const mockServer = new MockMeterApiServer({
   getResponseSourceMode: () => apiResponseSourceMode,
   getBridgePayload: () => getApiBridgePayload(),
-});
-
-const bridgeServer = new MockBridgeApiServer({
-  getPoints: () => modbusServer.getPoints(),
-  getMappings: () => getCurrentBridgeMappings(),
-  buildPayload: ({ points, mappings, includeTimestamp } = {}) => buildBridgePayload({
-    points,
-    mappings,
-    includeTimestamp,
-  }),
 });
 
 function resolveAppIconPath() {
@@ -230,22 +219,6 @@ function registerIpc() {
     return modbusServer.clearLogs();
   });
 
-  ipcMain.handle('bridge:start-server', async (_event, config) => {
-    return bridgeServer.start(config);
-  });
-
-  ipcMain.handle('bridge:stop-server', async () => {
-    return bridgeServer.stop();
-  });
-
-  ipcMain.handle('bridge:restart-server', async (_event, config) => {
-    return bridgeServer.restart(config);
-  });
-
-  ipcMain.handle('bridge:get-status', async () => {
-    return bridgeServer.getStatus();
-  });
-
   ipcMain.handle('bridge:get-preview', async (_event, mappings) => {
     const points = modbusServer.getPoints();
     const previewMappings = Array.isArray(mappings)
@@ -287,15 +260,6 @@ function registerIpc() {
   ipcMain.handle('bridge:delete-user-preset', async (_event, presetId) => {
     return deleteUserBridgePreset(app, presetId);
   });
-
-  ipcMain.handle('bridge:get-logs', async () => {
-    return bridgeServer.getLogs();
-  });
-
-  ipcMain.handle('bridge:clear-logs', async () => {
-    bridgeServer.clearLogs();
-    return bridgeServer.getLogs();
-  });
 }
 
 app.whenReady().then(() => {
@@ -323,11 +287,6 @@ app.on('before-quit', async () => {
     console.error('Failed to stop Modbus server:', error);
   }
 
-  try {
-    await bridgeServer.stop();
-  } catch (error) {
-    console.error('Failed to stop Bridge server:', error);
-  }
 });
 
 app.on('window-all-closed', () => {

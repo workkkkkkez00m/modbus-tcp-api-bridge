@@ -1,6 +1,6 @@
 # BMS Protocol Mock Lab
 
-以 Electron + Vite 建立的獨立 mock app，提供 API Simulator、Modbus TCP Simulator，並預留後續 Modbus → API Bridge。
+以 Electron + Vite 建立的獨立 mock app，提供 API Simulator、Modbus TCP Simulator，以及作為 API Simulator 回應來源的 Modbus Bridge Mapping。
 
 ## 安裝
 
@@ -102,7 +102,15 @@ Coil 000001 = true
 此功能不是 Coil / Discrete Input mirror。
 它只在 Coil 寫入或 Coil 手動套用時，單向更新 Discrete Input。
 
-## Modbus → API Bridge Preset
+## Modbus → API Bridge Mapping
+
+Bridge 不再提供獨立 HTTP API Server。
+
+Bridge 的定位是：
+
+- Modbus TCP Simulator 的點位資料來源
+- API Simulator 的 response source
+- Mapping Table / Preset / Payload Preview / Diagnostics 設定區
 
 目前只保留最小必要 preset：
 
@@ -121,8 +129,9 @@ Coil 000001 = true
 1. 啟動 Modbus TCP Simulator。
 2. 設定點位與相容模式。
 3. 到 Bridge Mapping 進階設定選擇 preset，必要時再微調 mapping。
-4. 回 API Simulator，將 API 回應來源切到 Modbus Bridge。
-5. 啟動 API Server。
+4. 使用 Payload Preview 與 Diagnostics 確認輸出結果。
+5. 回 API Simulator，將 API 回應來源切到 Modbus Bridge。
+6. 啟動 API Server，並使用 API Simulator 的 URL 呼叫結果。
 
 ## Roadmap
 

@@ -29,10 +29,6 @@ contextBridge.exposeInMainWorld('modbusSimulator', {
 });
 
 contextBridge.exposeInMainWorld('bridgeSimulator', {
-  startServer: (config) => ipcRenderer.invoke('bridge:start-server', config),
-  stopServer: () => ipcRenderer.invoke('bridge:stop-server'),
-  restartServer: (config) => ipcRenderer.invoke('bridge:restart-server', config),
-  getStatus: () => ipcRenderer.invoke('bridge:get-status'),
   getPreview: (mappings) => ipcRenderer.invoke('bridge:get-preview', mappings),
   getMappings: () => ipcRenderer.invoke('bridge:get-mappings'),
   setMappings: (mappings) => ipcRenderer.invoke('bridge:set-mappings', mappings),
@@ -40,6 +36,4 @@ contextBridge.exposeInMainWorld('bridgeSimulator', {
   getPresets: () => ipcRenderer.invoke('bridge:get-presets'),
   saveUserPreset: (preset) => ipcRenderer.invoke('bridge:save-user-preset', preset),
   deleteUserPreset: (presetId) => ipcRenderer.invoke('bridge:delete-user-preset', presetId),
-  getLogs: () => ipcRenderer.invoke('bridge:get-logs'),
-  clearLogs: () => ipcRenderer.invoke('bridge:clear-logs'),
 });

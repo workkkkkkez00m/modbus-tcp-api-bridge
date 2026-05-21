@@ -78,12 +78,6 @@ const MODBUS_EMPTY_LOG_ROW = `
   </tr>
 `;
 
-const BRIDGE_EMPTY_LOG_ROW = `
-  <tr>
-    <td colspan="7" class="empty">目前沒有 Bridge Request Log。</td>
-  </tr>
-`;
-
 const BRIDGE_EMPTY_MAPPING_ROW = `
   <tr>
     <td colspan="7" class="empty">目前沒有 Mapping，請先新增或載入 Preset。</td>
@@ -156,14 +150,6 @@ const modbusElements = {
 };
 
 const bridgeElements = {
-  hostInput: document.querySelector('#bridgeHostInput'),
-  portInput: document.querySelector('#bridgePortInput'),
-  pathInput: document.querySelector('#bridgePathInput'),
-  startButton: document.querySelector('#bridgeStartButton'),
-  stopButton: document.querySelector('#bridgeStopButton'),
-  restartButton: document.querySelector('#bridgeRestartButton'),
-  statusBadge: document.querySelector('#bridgeServerStatus'),
-  currentUrl: document.querySelector('#bridgeCurrentUrl'),
   previewModeText: document.querySelector('#bridgePreviewModeText'),
   messageBox: document.querySelector('#bridgeMessageBox'),
   mappingTableBody: document.querySelector('#bridgeMappingTableBody'),
@@ -180,8 +166,6 @@ const bridgeElements = {
   payloadPreview: document.querySelector('#bridgePayloadPreview'),
   diagnosticsPreview: document.querySelector('#bridgeDiagnosticsPreview'),
   diagnosticsSummary: document.querySelector('#bridgeDiagnosticsSummary'),
-  logTableBody: document.querySelector('#bridgeLogTableBody'),
-  refreshLogsButton: document.querySelector('#bridgeRefreshLogsButton'),
 };
 
 const modbusPointDrafts = new Map();
@@ -573,14 +557,6 @@ function getModbusConfigFromForm() {
   };
 }
 
-function getBridgeConfigFromForm() {
-  return {
-    host: bridgeElements.hostInput.value.trim() || '127.0.0.1',
-    port: readIntOrFallback(bridgeElements.portInput.value, 3201),
-    path: bridgeElements.pathInput.value.trim() || '/api/bridge',
-  };
-}
-
 function getRegisterGeneratorConfigFromForm() {
   return {
     regType: modbusElements.registerTypeSelect.value,
@@ -961,12 +937,6 @@ function updateUrlPreview() {
   const config = getApiConfigFromForm();
   const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
   apiElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
-}
-
-function updateBridgeUrlPreview() {
-  const config = getBridgeConfigFromForm();
-  const path = config.path.startsWith('/') ? config.path : `/${config.path}`;
-  bridgeElements.currentUrl.textContent = `http://${config.host}:${config.port}${path}`;
 }
 
 async function updatePayloadEditor() {
@@ -1361,43 +1331,6 @@ function renderModbusStatus(status, options = {}) {
   }
 }
 
-function renderBridgeStatus(status, options = {}) {
-  const { syncConfig = true } = options;
-  const running = Boolean(status.running);
-
-  bridgeElements.statusBadge.textContent = running ? '執行中' : '已停止';
-  bridgeElements.statusBadge.className = running
-    ? 'badge badge-running status-running'
-    : 'badge badge-stopped status-stopped';
-
-  bridgeElements.currentUrl.textContent = status.url || bridgeElements.currentUrl.textContent;
-
-  if (syncConfig && status.config) {
-    bridgeElements.hostInput.value = status.config.host;
-    bridgeElements.portInput.value = status.config.port;
-    bridgeElements.pathInput.value = status.config.path;
-  }
-}
-
-function renderBridgeLogs(logs) {
-  if (!logs.length) {
-    bridgeElements.logTableBody.innerHTML = BRIDGE_EMPTY_LOG_ROW;
-    return;
-  }
-
-  bridgeElements.logTableBody.innerHTML = logs.map((log) => `
-    <tr>
-      <td>${escapeHtml(log.time)}</td>
-      <td>${escapeHtml(log.method)}</td>
-      <td><code>${escapeHtml(log.path)}</code></td>
-      <td>${escapeHtml(String(log.statusCode))}</td>
-      <td>${escapeHtml(String(log.mappingCount ?? 0))}</td>
-      <td>${escapeHtml(String(log.missingMappingCount ?? 0))}</td>
-      <td>${escapeHtml(log.message || '-')}</td>
-    </tr>
-  `).join('');
-}
-
 function renderBridgePreview(previewResult, options = {}) {
   const {
     sourceLabel = '目前表格',
@@ -1640,16 +1573,6 @@ async function refreshModbusLogs() {
   renderModbusLogs(logs);
 }
 
-async function refreshBridgeStatus() {
-  const status = await window.bridgeSimulator.getStatus();
-  renderBridgeStatus(status, { syncConfig: false });
-}
-
-async function refreshBridgeLogs() {
-  const logs = await window.bridgeSimulator.getLogs();
-  renderBridgeLogs(logs);
-}
-
 async function loadBridgeMappingsFromMain(options = {}) {
   const { silent = false } = options;
 
@@ -1698,36 +1621,6 @@ async function restartModbusServer() {
   }
 }
 
-async function startBridgeServer() {
-  try {
-    const status = await window.bridgeSimulator.startServer(getBridgeConfigFromForm());
-    renderBridgeStatus(status);
-    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已啟動。', 'success');
-  } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `啟動 Bridge API 失敗：${error.message}`, 'error');
-  }
-}
-
-async function stopBridgeServer() {
-  try {
-    const status = await window.bridgeSimulator.stopServer();
-    renderBridgeStatus(status);
-    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已停止。', 'success');
-  } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `停止 Bridge API 失敗：${error.message}`, 'error');
-  }
-}
-
-async function restartBridgeServer() {
-  try {
-    const status = await window.bridgeSimulator.restartServer(getBridgeConfigFromForm());
-    renderBridgeStatus(status);
-    setPanelMessage(bridgeElements.messageBox, 'Bridge API 已重新啟動。', 'success');
-  } catch (error) {
-    setPanelMessage(bridgeElements.messageBox, `重新啟動 Bridge API 失敗：${error.message}`, 'error');
-  }
-}
-
 async function loadBridgePreset(options = {}) {
   const { silent = false } = options;
 
@@ -1756,7 +1649,7 @@ function addBridgeMapping() {
   drafts.push(createEmptyBridgeMappingDraft());
   renderBridgeMappingTable(drafts);
   setBridgePreviewModeText(
-    '已新增一列 Mapping；Preview 會直接讀取目前表格內容，儲存後 API Simulator 與獨立 Bridge API 才會套用。'
+    '已新增一列 Mapping；Preview 會直接讀取目前表格內容，儲存後 API Simulator 的 Modbus Bridge 會套用。'
   );
 }
 
@@ -1766,7 +1659,7 @@ async function saveBridgeMappings() {
     const savedMappings = await window.bridgeSimulator.setMappings(mappings);
     renderBridgeMappingTable(savedMappings);
     setBridgePreviewModeText(
-      `已儲存 mappings，共 ${savedMappings.length} 筆；API Simulator 的 Modbus Bridge 與獨立 Bridge API 會共用這批設定。`
+      `已儲存 mappings，共 ${savedMappings.length} 筆；API Simulator 若選擇 Modbus Bridge，會使用這批設定。`
     );
     setPanelMessage(bridgeElements.messageBox, '已儲存 Mapping 到 main process。', 'success');
   } catch (error) {
@@ -1944,7 +1837,7 @@ async function handlePointTableClick(event) {
 
 function markBridgeTableAsEdited() {
   setBridgePreviewModeText(
-    '目前正在編輯表格 mappings；Preview 會直接讀取表格內容，儲存後 API Simulator 與獨立 Bridge API 才會套用。'
+    '目前正在編輯表格 mappings；Preview 會直接讀取表格內容，儲存後 API Simulator 的 Modbus Bridge 會套用。'
   );
 }
 
@@ -2030,9 +1923,6 @@ modbusElements.pointTableBody.addEventListener('input', updatePointDraft);
 modbusElements.pointTableBody.addEventListener('change', updatePointDraftSelection);
 modbusElements.pointTableBody.addEventListener('click', handlePointTableClick);
 
-bridgeElements.startButton.addEventListener('click', startBridgeServer);
-bridgeElements.stopButton.addEventListener('click', stopBridgeServer);
-bridgeElements.restartButton.addEventListener('click', restartBridgeServer);
 bridgeElements.reloadMappingsButton.addEventListener('click', () => {
   loadBridgeMappingsFromMain();
 });
@@ -2042,10 +1932,6 @@ bridgeElements.loadMappingsButton.addEventListener('click', () => {
 bridgeElements.addMappingButton.addEventListener('click', addBridgeMapping);
 bridgeElements.saveMappingsButton.addEventListener('click', saveBridgeMappings);
 bridgeElements.previewButton.addEventListener('click', previewBridgePayload);
-bridgeElements.refreshLogsButton.addEventListener('click', refreshBridgeLogs);
-bridgeElements.hostInput.addEventListener('input', updateBridgeUrlPreview);
-bridgeElements.portInput.addEventListener('input', updateBridgeUrlPreview);
-bridgeElements.pathInput.addEventListener('input', updateBridgeUrlPreview);
 bridgeElements.mappingTableBody.addEventListener('input', handleBridgeMappingTableInput);
 bridgeElements.mappingTableBody.addEventListener('change', handleBridgeMappingTableInput);
 bridgeElements.mappingTableBody.addEventListener('click', handleBridgeMappingTableClick);
@@ -2054,7 +1940,6 @@ async function init() {
   initModeTabs();
   await initApiResponseSourceMode();
   updateUrlPreview();
-  updateBridgeUrlPreview();
   modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();
   modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
   ensureBridgePresetControls();
@@ -2075,8 +1960,6 @@ async function init() {
   await refreshModbusStatus();
   await refreshModbusPoints();
   await refreshModbusLogs();
-  await refreshBridgeStatus();
-  await refreshBridgeLogs();
   await refreshBridgePresets({ silent: true });
   await loadBridgeMappingsFromMain({ silent: true });
   updateBridgePresetSelectionHint();
@@ -2086,8 +1969,6 @@ async function init() {
   setInterval(refreshModbusStatus, 1500);
   setInterval(refreshModbusPoints, 1000);
   setInterval(refreshModbusLogs, 1000);
-  setInterval(refreshBridgeStatus, 2000);
-  setInterval(refreshBridgeLogs, 2000);
 }
 
 init();
