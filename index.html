@@ -401,8 +401,73 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
         </section>
 
         <section class="card">
-          <h2>R4 Bridge Roadmap</h2>
-          <p class="muted">R4 將新增 Modbus → API Bridge，用 Modbus 點位表轉換成 HTTP API Payload。</p>
+          <h2>位址模式說明</h2>
+
+          <div class="roadmap-switcher">
+            <input type="radio" name="modbusRoadmap" id="roadmapTabRequest" checked />
+            <label for="roadmapTabRequest">請求位址解析模式</label>
+            <input type="radio" name="modbusRoadmap" id="roadmapTabInput" />
+            <label for="roadmapTabInput">位址輸入模式</label>
+
+            <div class="roadmap-panels">
+              <section class="roadmap-panel request">
+                <h3>Request Address Base Mode：請求位址解析模式</h3>
+                <p>這個設定用來決定：外部 BMS 或 Modbus Client 送進來的 request address，要如何對應到模擬器內部位址。</p>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Standard 0-based：request 0 = internal 0</div>
+                  <p class="muted-note">標準 Modbus 通訊位址模式。</p>
+                  <ul class="roadmap-list">
+                    <li>外部讀取 address 0 → 模擬器內部 address 0</li>
+                    <li>外部讀取 address 1 → 模擬器內部 address 1</li>
+                  </ul>
+                  <p class="muted-note">適合使用標準 0-based 位址的 Modbus client 或設備。</p>
+                </div>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Legacy 1-based：request 1 = internal 0</div>
+                  <p class="muted-note">相容部分 BMS 或舊式 Modbus 工具的位址習慣。</p>
+                  <ul class="roadmap-list">
+                    <li>外部讀取 address 1 → 模擬器內部 address 0</li>
+                    <li>外部讀取 address 2 → 模擬器內部 address 1</li>
+                  </ul>
+                  <p class="muted-note">如果你的 BMS 點表顯示第一點，但實際送出的 request address 是 1，請使用此模式。</p>
+                </div>
+
+                <div class="roadmap-quick-check">
+                  <strong>簡單判斷</strong>
+                  <ul>
+                    <li>如果 client 讀 address 0 才是第一點 → 選 Standard 0-based</li>
+                    <li>如果 client 讀 address 1 才是第一點 → 選 Legacy 1-based</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section class="roadmap-panel input">
+                <h3>Address Input Mode：位址輸入模式</h3>
+                <p>這個設定用來決定：你在模擬器 UI 產生點位時，輸入的起始位址要怎麼解讀。</p>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Reference Address / 1-based 相容模式</div>
+                  <p class="muted-note">適合依照現場點表或一般 Modbus 工具的顯示位址輸入。</p>
+                  <ul class="roadmap-list">
+                    <li>輸入 <code>300001</code> 代表 Input Register 3x 的第一點。</li>
+                    <li>也可以輸入 <code>1</code> 代表第一點。</li>
+                  </ul>
+                  <p class="muted-note">此模式不建議輸入 0。</p>
+                </div>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Protocol Address / 0-based 模式</div>
+                  <p class="muted-note">適合工程測試或已知道實際 protocol address 的情況。</p>
+                  <ul class="roadmap-list">
+                    <li>輸入 <code>0</code> 代表模擬器內部 address 0，也就是第一點。</li>
+                    <li>輸入 <code>1</code> 代表模擬器內部 address 1，也就是第二點。</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </div>
         </section>
 
         <section class="card full-width">
@@ -480,10 +545,10 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
           </div>
 
           <div class="button-row">
-            <button id="bridgeReloadMappingsButton" class="secondary">讀取已儲存 Mapping</button>
+            <button id="bridgeReloadMappingsButton" class="secondary">讀取</button>
             <button id="bridgeLoadMappingsButton" class="secondary">載入 Sample Mapping</button>
-            <button id="bridgeAddMappingButton">新增 Mapping</button>
-            <button id="bridgeSaveMappingsButton" class="secondary">儲存 Mapping</button>
+            <button id="bridgeAddMappingButton">新增</button>
+            <button id="bridgeSaveMappingsButton" class="secondary">儲存</button>
           </div>
 
           <p class="help-text">JSON Path 僅支援物件點號路徑，例如 <code>site.power.total</code>；不支援 array path。</p>
@@ -527,11 +592,13 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
 }</pre>
             </div>
             <div>
-              <div class="info-label">Diagnostics</div>
-              <pre id="bridgeDiagnosticsPreview">{
-  "appliedMappings": [],
-  "missingMappings": []
-}</pre>
+              <details class="bridge-diagnostics">
+                <summary>
+                  Diagnostics / 除錯資訊
+                  <span id="bridgeDiagnosticsSummary" class="bridge-diagnostics-summary">尚無除錯資訊</span>
+                </summary>
+                <pre id="bridgeDiagnosticsPreview">尚無除錯資訊</pre>
+              </details>
             </div>
           </div>
         </section>

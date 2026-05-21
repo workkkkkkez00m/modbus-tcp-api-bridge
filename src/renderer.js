@@ -177,6 +177,7 @@ const bridgeElements = {
   previewButton: document.querySelector('#bridgePreviewButton'),
   payloadPreview: document.querySelector('#bridgePayloadPreview'),
   diagnosticsPreview: document.querySelector('#bridgeDiagnosticsPreview'),
+  diagnosticsSummary: document.querySelector('#bridgeDiagnosticsSummary'),
   logTableBody: document.querySelector('#bridgeLogTableBody'),
   refreshLogsButton: document.querySelector('#bridgeRefreshLogsButton'),
 };
@@ -348,7 +349,7 @@ function renderBridgePresetSelectOptions(select, selectedValue) {
 
   select.innerHTML = `
     <option value="${DEFAULT_BRIDGE_PRESET_OPTION_VALUE}" ${normalizedSelectedValue === DEFAULT_BRIDGE_PRESET_OPTION_VALUE ? 'selected' : ''}>
-      新增使用者 Preset
+      新增使用者自訂
     </option>
     <optgroup label="Default Presets">
       ${defaultOptions}
@@ -371,21 +372,21 @@ function ensureBridgePresetControls() {
   }
 
   if (bridgeElements.loadMappingsButton) {
-    bridgeElements.loadMappingsButton.textContent = '載入 Preset';
+    bridgeElements.loadMappingsButton.textContent = '載入';
   }
 
   let controlRow = document.querySelector('#bridgePresetControlRow');
   if (!controlRow) {
     controlRow = document.createElement('div');
     controlRow.id = 'bridgePresetControlRow';
-    controlRow.className = 'button-row';
+    controlRow.className = 'button-row bridge-preset-row';
 
     const presetLabel = document.createElement('label');
     presetLabel.className = 'stacked-field';
 
     const presetLabelText = document.createElement('span');
     presetLabelText.className = 'label-text';
-    presetLabelText.textContent = 'Preset 選擇';
+    presetLabelText.textContent = '自訂Mapping選擇';
 
     const presetSelect = document.createElement('select');
     presetSelect.id = 'bridgePresetSelect';
@@ -396,7 +397,7 @@ function ensureBridgePresetControls() {
 
     const nameLabelText = document.createElement('span');
     nameLabelText.className = 'label-text';
-    nameLabelText.textContent = 'Preset 名稱';
+    nameLabelText.textContent = '自訂名稱';
 
     const nameInput = document.createElement('input');
     nameInput.id = 'bridgePresetNameInput';
@@ -406,20 +407,20 @@ function ensureBridgePresetControls() {
     const newPresetButton = document.createElement('button');
     newPresetButton.type = 'button';
     newPresetButton.id = 'bridgeNewPresetButton';
-    newPresetButton.className = 'secondary';
-    newPresetButton.textContent = '新增 Preset';
+    newPresetButton.className = 'bridge-preset-new';
+    newPresetButton.textContent = '新增自訂';
 
     const savePresetButton = document.createElement('button');
     savePresetButton.type = 'button';
     savePresetButton.id = 'bridgeSavePresetButton';
-    savePresetButton.className = 'secondary';
-    savePresetButton.textContent = '儲存目前 Mapping 為 Preset';
+    savePresetButton.className = 'bridge-preset-save';
+    savePresetButton.textContent = '儲存目前 Mapping 為自訂';
 
     const deletePresetButton = document.createElement('button');
     deletePresetButton.type = 'button';
     deletePresetButton.id = 'bridgeDeletePresetButton';
-    deletePresetButton.className = 'secondary';
-    deletePresetButton.textContent = '刪除使用者 Preset';
+    deletePresetButton.className = 'bridge-preset-delete';
+    deletePresetButton.textContent = '刪除使用者自訂';
 
     controlRow.append(
       presetLabel,
@@ -1376,16 +1377,26 @@ function renderBridgePreview(previewResult, options = {}) {
     enabledCount = totalCount,
   } = options;
   const payload = previewResult?.payload ?? {};
-  const diagnostics = previewResult?.diagnostics ?? {};
-  const appliedCount = Array.isArray(diagnostics.appliedMappings)
+  const diagnostics = previewResult?.diagnostics;
+  const appliedCount = Array.isArray(diagnostics?.appliedMappings)
     ? diagnostics.appliedMappings.length
     : 0;
-  const missingCount = Array.isArray(diagnostics.missingMappings)
+  const missingCount = Array.isArray(diagnostics?.missingMappings)
     ? diagnostics.missingMappings.length
     : 0;
 
   bridgeElements.payloadPreview.textContent = formatJsonPreview(payload);
-  bridgeElements.diagnosticsPreview.textContent = formatJsonPreview(diagnostics);
+  if (diagnostics != null) {
+    bridgeElements.diagnosticsPreview.textContent = formatJsonPreview(diagnostics);
+    if (bridgeElements.diagnosticsSummary) {
+      bridgeElements.diagnosticsSummary.textContent = `套用 ${appliedCount} 筆，缺少 ${missingCount} 筆`;
+    }
+  } else {
+    bridgeElements.diagnosticsPreview.textContent = '尚無除錯資訊';
+    if (bridgeElements.diagnosticsSummary) {
+      bridgeElements.diagnosticsSummary.textContent = '尚無除錯資訊';
+    }
+  }
   setBridgePreviewModeText(
     `Preview 使用${sourceLabel} mappings，共 ${totalCount} 筆，啟用 ${enabledCount} 筆；成功套用 ${appliedCount} 筆，缺少來源 ${missingCount} 筆。`
   );
