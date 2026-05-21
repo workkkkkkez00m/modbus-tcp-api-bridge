@@ -203,6 +203,10 @@ function registerIpc() {
     return modbusServer.generateRegisters(config);
   });
 
+  ipcMain.handle('modbus:clear-points', async () => {
+    return modbusServer.clearPoints();
+  });
+
   ipcMain.handle('modbus:update-point', async (_event, point) => {
     return modbusServer.updatePoint(point);
   });

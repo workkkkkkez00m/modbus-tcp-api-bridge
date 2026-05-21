@@ -143,6 +143,7 @@ const modbusElements = {
   actionSelect: document.querySelector('#modbusAction'),
   actionConfigInput: document.querySelector('#modbusActionConfigInput'),
   generateButton: document.querySelector('#generateRegistersButton'),
+  clearPointsButton: document.querySelector('#clearModbusPointsButton'),
   pointTableBody: document.querySelector('#modbusPointTableBody'),
   logTableBody: document.querySelector('#modbusLogTableBody'),
   clearLogsButton: document.querySelector('#clearModbusLogsButton'),
@@ -1740,6 +1741,23 @@ async function generateModbusRegisters() {
   }
 }
 
+async function clearModbusPoints() {
+  const confirmed = confirm('確定要清除全部 Modbus 點位嗎？此操作不會停止 Modbus Server，也不會清除 Request Log。');
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await window.modbusSimulator.clearPoints();
+    renderModbusStatus(result.status);
+    renderModbusPoints(result.points);
+    setPanelMessage(modbusElements.messageBox, '已清除全部 Modbus 點位。', 'success');
+  } catch (error) {
+    setPanelMessage(modbusElements.messageBox, `清除 Modbus 點位失敗：${error.message}`, 'error');
+  }
+}
+
 async function applyModbusPointUpdate(row) {
   const pointId = row.dataset.pointId;
   const value = row.querySelector('.point-value-input')?.value ?? '';
@@ -1912,6 +1930,7 @@ modbusElements.startButton.addEventListener('click', startModbusServer);
 modbusElements.stopButton.addEventListener('click', stopModbusServer);
 modbusElements.restartButton.addEventListener('click', restartModbusServer);
 modbusElements.generateButton.addEventListener('click', generateModbusRegisters);
+modbusElements.clearPointsButton.addEventListener('click', clearModbusPoints);
 modbusElements.clearLogsButton.addEventListener('click', clearModbusLogs);
 modbusElements.registerTypeSelect.addEventListener('change', syncModbusGeneratorTypeOptions);
 modbusElements.typeSelect.addEventListener('change', () => {

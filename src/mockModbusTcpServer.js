@@ -345,6 +345,19 @@ class MockModbusTcpServer {
     return this.getLogs();
   }
 
+  clearPoints() {
+    this.state.points = [];
+    this.state.rawCoils = {};
+    this.state.rawDiscreteInputs = {};
+    this.state.rawInputRegisters = {};
+    this.state.rawHoldingRegisters = {};
+
+    return {
+      status: this.getStatus(),
+      points: this.getPoints(),
+    };
+  }
+
   async start(nextConfig = {}) {
     if (this.server) {
       return this.getStatus();

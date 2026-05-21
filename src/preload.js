@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('modbusSimulator', {
   restartServer: (config) => ipcRenderer.invoke('modbus:restart-server', config),
   getStatus: () => ipcRenderer.invoke('modbus:get-status'),
   generateRegisters: (config) => ipcRenderer.invoke('modbus:generate-registers', config),
+  clearPoints: () => ipcRenderer.invoke('modbus:clear-points'),
   updatePoint: (point) => ipcRenderer.invoke('modbus:update-point', point),
   getPoints: () => ipcRenderer.invoke('modbus:get-points'),
   getLogs: () => ipcRenderer.invoke('modbus:get-logs'),
