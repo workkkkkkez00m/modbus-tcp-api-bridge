@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('bridgeSimulator', {
   getMappings: () => ipcRenderer.invoke('bridge:get-mappings'),
   setMappings: (mappings) => ipcRenderer.invoke('bridge:set-mappings', mappings),
   getDefaultMappings: () => ipcRenderer.invoke('bridge:get-default-mappings'),
+  getPresets: () => ipcRenderer.invoke('bridge:get-presets'),
+  saveUserPreset: (preset) => ipcRenderer.invoke('bridge:save-user-preset', preset),
+  deleteUserPreset: (presetId) => ipcRenderer.invoke('bridge:delete-user-preset', presetId),
   getLogs: () => ipcRenderer.invoke('bridge:get-logs'),
   clearLogs: () => ipcRenderer.invoke('bridge:clear-logs'),
 });

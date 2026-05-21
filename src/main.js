@@ -2,8 +2,14 @@ import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { bridgeDefaultConfig } from './bridgeDefaultConfig.js';
+import { bridgeDefaultConfig, bridgeDefaultPresets } from './bridgeDefaultConfig.js';
 import { buildBridgePayload } from './bridgeMapper.js';
+import {
+  deleteUserBridgePreset,
+  getBridgePresetFilePath,
+  getBridgeUserPresets,
+  saveUserBridgePreset,
+} from './bridgePresetStore.js';
 import { MockMeterApiServer } from './mockMeterApiServer.js';
 import { MockBridgeApiServer } from './mockBridgeApiServer.js';
 import { MockModbusTcpServer } from './mockModbusTcpServer.js';
@@ -24,6 +30,18 @@ function cloneJsonValue(value) {
 
 function getDefaultBridgeMappings() {
   return cloneJsonValue(bridgeDefaultConfig.mappings || []);
+}
+
+function getDefaultBridgePresets() {
+  return cloneJsonValue(
+    (Array.isArray(bridgeDefaultPresets) ? bridgeDefaultPresets : []).map((preset) => ({
+      id: preset.id,
+      name: preset.label || preset.name || preset.id,
+      description: preset.description || '',
+      mappings: Array.isArray(preset.mappings) ? preset.mappings : [],
+      scope: 'default',
+    }))
+  );
 }
 
 function normalizeBridgeMappings(mappings) {
@@ -252,6 +270,22 @@ function registerIpc() {
 
   ipcMain.handle('bridge:get-default-mappings', async () => {
     return getDefaultBridgeMappings();
+  });
+
+  ipcMain.handle('bridge:get-presets', async () => {
+    return {
+      filePath: getBridgePresetFilePath(app),
+      defaultPresets: getDefaultBridgePresets(),
+      userPresets: getBridgeUserPresets(app),
+    };
+  });
+
+  ipcMain.handle('bridge:save-user-preset', async (_event, preset) => {
+    return saveUserBridgePreset(app, preset);
+  });
+
+  ipcMain.handle('bridge:delete-user-preset', async (_event, presetId) => {
+    return deleteUserBridgePreset(app, presetId);
   });
 
   ipcMain.handle('bridge:get-logs', async () => {

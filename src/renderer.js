@@ -97,10 +97,8 @@ const BRIDGE_TRANSFORM_TYPES = [
   { value: 'string', label: 'string' },
 ];
 
-const BRIDGE_PRESET_MAP = new Map(
-  bridgeDefaultPresets.map((preset) => [preset.id, preset])
-);
 const DEFAULT_BRIDGE_PRESET_ID = bridgeDefaultPresets[0]?.id ?? '';
+const DEFAULT_BRIDGE_PRESET_OPTION_VALUE = '';
 
 const apiElements = {
   hostInput: document.querySelector('#hostInput'),
@@ -170,6 +168,10 @@ const bridgeElements = {
   reloadMappingsButton: document.querySelector('#bridgeReloadMappingsButton'),
   loadMappingsButton: document.querySelector('#bridgeLoadMappingsButton'),
   presetSelect: null,
+  presetNameInput: null,
+  newPresetButton: null,
+  savePresetButton: null,
+  deletePresetButton: null,
   addMappingButton: document.querySelector('#bridgeAddMappingButton'),
   saveMappingsButton: document.querySelector('#bridgeSaveMappingsButton'),
   previewButton: document.querySelector('#bridgePreviewButton'),
@@ -180,6 +182,16 @@ const bridgeElements = {
 };
 
 const modbusPointDrafts = new Map();
+const bridgePresetState = {
+  defaultPresets: bridgeDefaultPresets.map((preset) => ({
+    id: String(preset.id ?? '').trim(),
+    name: String(preset.label ?? preset.name ?? preset.id ?? '').trim(),
+    description: String(preset.description ?? '').trim(),
+    mappings: cloneBridgePresetMappings(preset.mappings),
+    scope: 'default',
+  })),
+  userPresets: [],
+};
 let bridgeMappingRowSeed = 0;
 
 function ensureModbusUndefinedBooleanModeField() {
@@ -267,51 +279,192 @@ function ensureModbusFeedbackMappingModeField() {
   return select;
 }
 
-function getBridgePresetById(presetId) {
-  return BRIDGE_PRESET_MAP.get(presetId) || bridgeDefaultPresets[0] || null;
-}
-
 function cloneBridgePresetMappings(mappings) {
   return JSON.parse(JSON.stringify(Array.isArray(mappings) ? mappings : []));
 }
 
-function ensureBridgePresetField() {
+function normalizeBridgePresetForUi(preset, scope = 'user') {
+  return {
+    id: String(preset?.id ?? '').trim(),
+    name: String(preset?.name ?? preset?.label ?? preset?.id ?? '').trim(),
+    description: String(preset?.description ?? '').trim(),
+    mappings: cloneBridgePresetMappings(preset?.mappings),
+    createdAt: String(preset?.createdAt ?? '').trim(),
+    updatedAt: String(preset?.updatedAt ?? '').trim(),
+    scope,
+  };
+}
+
+function setBridgeUserPresets(userPresets) {
+  bridgePresetState.userPresets = Array.isArray(userPresets)
+    ? userPresets.map((preset) => normalizeBridgePresetForUi(preset, 'user'))
+    : [];
+}
+
+function setBridgeDefaultPresets(defaultPresets) {
+  if (!Array.isArray(defaultPresets) || !defaultPresets.length) {
+    return;
+  }
+
+  bridgePresetState.defaultPresets = defaultPresets
+    .map((preset) => normalizeBridgePresetForUi(preset, 'default'))
+    .filter((preset) => preset.id && preset.name);
+}
+
+function getAllBridgePresets() {
+  return [...bridgePresetState.defaultPresets, ...bridgePresetState.userPresets];
+}
+
+function getBridgePresetById(presetId) {
+  const normalizedPresetId = String(presetId ?? '').trim();
+  if (!normalizedPresetId) {
+    return null;
+  }
+
+  return getAllBridgePresets().find((preset) => preset.id === normalizedPresetId) || null;
+}
+
+function getBridgePresetDisplayLabel(preset) {
+  return `${preset.scope === 'default' ? 'Default' : 'User'}：${preset.name}`;
+}
+
+function renderBridgePresetSelectOptions(select, selectedValue) {
+  const normalizedSelectedValue = getBridgePresetById(selectedValue)
+    ? selectedValue
+    : (selectedValue === DEFAULT_BRIDGE_PRESET_OPTION_VALUE
+      ? DEFAULT_BRIDGE_PRESET_OPTION_VALUE
+      : DEFAULT_BRIDGE_PRESET_ID);
+
+  const buildOptionHtml = (preset) => `
+    <option value="${escapeHtml(preset.id)}" ${preset.id === normalizedSelectedValue ? 'selected' : ''}>
+      ${escapeHtml(getBridgePresetDisplayLabel(preset))}
+    </option>
+  `;
+
+  const defaultOptions = bridgePresetState.defaultPresets.map(buildOptionHtml).join('');
+  const userOptions = bridgePresetState.userPresets.length
+    ? bridgePresetState.userPresets.map(buildOptionHtml).join('')
+    : '<option value="__bridge-user-empty__" disabled>尚無使用者 Preset</option>';
+
+  select.innerHTML = `
+    <option value="${DEFAULT_BRIDGE_PRESET_OPTION_VALUE}" ${normalizedSelectedValue === DEFAULT_BRIDGE_PRESET_OPTION_VALUE ? 'selected' : ''}>
+      新增使用者 Preset
+    </option>
+    <optgroup label="Default Presets">
+      ${defaultOptions}
+    </optgroup>
+    <optgroup label="User Presets">
+      ${userOptions}
+    </optgroup>
+  `;
+}
+
+function ensureBridgePresetControls() {
   const buttonRow = document.querySelector('#bridgePanel .button-row');
   if (!buttonRow) {
-    return document.querySelector('#bridgePresetSelect');
+    bridgeElements.presetSelect = document.querySelector('#bridgePresetSelect');
+    bridgeElements.presetNameInput = document.querySelector('#bridgePresetNameInput');
+    bridgeElements.newPresetButton = document.querySelector('#bridgeNewPresetButton');
+    bridgeElements.savePresetButton = document.querySelector('#bridgeSavePresetButton');
+    bridgeElements.deletePresetButton = document.querySelector('#bridgeDeletePresetButton');
+    return;
   }
 
   if (bridgeElements.loadMappingsButton) {
     bridgeElements.loadMappingsButton.textContent = '載入 Preset';
   }
 
-  let select = document.querySelector('#bridgePresetSelect');
-  if (select) {
-    return select;
+  let controlRow = document.querySelector('#bridgePresetControlRow');
+  if (!controlRow) {
+    controlRow = document.createElement('div');
+    controlRow.id = 'bridgePresetControlRow';
+    controlRow.className = 'button-row';
+
+    const presetLabel = document.createElement('label');
+    presetLabel.className = 'stacked-field';
+
+    const presetLabelText = document.createElement('span');
+    presetLabelText.className = 'label-text';
+    presetLabelText.textContent = 'Preset 選擇';
+
+    const presetSelect = document.createElement('select');
+    presetSelect.id = 'bridgePresetSelect';
+    presetLabel.append(presetLabelText, '\n', presetSelect);
+
+    const nameLabel = document.createElement('label');
+    nameLabel.className = 'stacked-field';
+
+    const nameLabelText = document.createElement('span');
+    nameLabelText.className = 'label-text';
+    nameLabelText.textContent = 'Preset 名稱';
+
+    const nameInput = document.createElement('input');
+    nameInput.id = 'bridgePresetNameInput';
+    nameInput.placeholder = '例如：Energy Meter Test';
+    nameLabel.append(nameLabelText, '\n', nameInput);
+
+    const newPresetButton = document.createElement('button');
+    newPresetButton.type = 'button';
+    newPresetButton.id = 'bridgeNewPresetButton';
+    newPresetButton.className = 'secondary';
+    newPresetButton.textContent = '新增 Preset';
+
+    const savePresetButton = document.createElement('button');
+    savePresetButton.type = 'button';
+    savePresetButton.id = 'bridgeSavePresetButton';
+    savePresetButton.className = 'secondary';
+    savePresetButton.textContent = '儲存目前 Mapping 為 Preset';
+
+    const deletePresetButton = document.createElement('button');
+    deletePresetButton.type = 'button';
+    deletePresetButton.id = 'bridgeDeletePresetButton';
+    deletePresetButton.className = 'secondary';
+    deletePresetButton.textContent = '刪除使用者 Preset';
+
+    controlRow.append(
+      presetLabel,
+      nameLabel,
+      newPresetButton,
+      savePresetButton,
+      deletePresetButton
+    );
+    buttonRow.before(controlRow);
   }
 
-  const label = document.createElement('label');
-  label.className = 'stacked-field';
+  bridgeElements.presetSelect = document.querySelector('#bridgePresetSelect');
+  bridgeElements.presetNameInput = document.querySelector('#bridgePresetNameInput');
+  bridgeElements.newPresetButton = document.querySelector('#bridgeNewPresetButton');
+  bridgeElements.savePresetButton = document.querySelector('#bridgeSavePresetButton');
+  bridgeElements.deletePresetButton = document.querySelector('#bridgeDeletePresetButton');
 
-  const labelText = document.createElement('span');
-  labelText.className = 'label-text';
-  labelText.textContent = 'Bridge Preset 預設組';
+  renderBridgePresetSelectOptions(bridgeElements.presetSelect, DEFAULT_BRIDGE_PRESET_ID);
+}
 
-  select = document.createElement('select');
-  select.id = 'bridgePresetSelect';
-  renderStaticSelectOptions(
-    select,
-    bridgeDefaultPresets.map((preset) => ({
-      value: preset.id,
-      label: preset.label,
-    })),
-    DEFAULT_BRIDGE_PRESET_ID
-  );
+function selectBridgePreset(presetId, options = {}) {
+  if (!bridgeElements.presetSelect || !bridgeElements.presetNameInput) {
+    return;
+  }
 
-  label.append(labelText, '\n', select);
-  buttonRow.prepend(label);
+  const { preserveNameInput = false } = options;
+  const normalizedPresetId = getBridgePresetById(presetId)
+    ? presetId
+    : DEFAULT_BRIDGE_PRESET_OPTION_VALUE;
 
-  return select;
+  renderBridgePresetSelectOptions(bridgeElements.presetSelect, normalizedPresetId);
+
+  const preset = getBridgePresetById(normalizedPresetId);
+  if (!preserveNameInput) {
+    bridgeElements.presetNameInput.value = preset?.name || '';
+  }
+
+  if (bridgeElements.deletePresetButton) {
+    bridgeElements.deletePresetButton.disabled = preset?.scope !== 'user';
+  }
+}
+
+function createNewBridgePresetDraft() {
+  selectBridgePreset(DEFAULT_BRIDGE_PRESET_OPTION_VALUE);
+  setBridgePreviewModeText('目前為新增使用者 Preset 模式；輸入名稱後可將目前表格儲存為新 preset。');
 }
 
 function readIntOrFallback(value, fallback) {
@@ -741,15 +894,47 @@ function setBridgePreviewModeText(message) {
   bridgeElements.previewModeText.textContent = message;
 }
 
+function applyBridgePresetLists(defaultPresets, userPresets, selectedPresetId) {
+  setBridgeDefaultPresets(defaultPresets);
+  setBridgeUserPresets(userPresets);
+  selectBridgePreset(selectedPresetId);
+  updateBridgePresetSelectionHint();
+}
+
 function updateBridgePresetSelectionHint() {
   const preset = getBridgePresetById(bridgeElements.presetSelect?.value);
   if (!preset) {
+    setBridgePreviewModeText('目前為新增使用者 Preset 模式；輸入名稱後可將目前表格儲存為新 preset。');
     return;
   }
 
   setBridgePreviewModeText(
-    `目前已選擇 Preset「${preset.label}」；按下「載入 Preset」後，會以 ${preset.mappings.length} 筆 mapping 覆蓋目前表格，並可再自行微調。`
+    preset.scope === 'default'
+      ? `目前已選擇 Default Preset「${preset.name}」；可載入使用，但不可直接覆蓋或刪除。`
+      : `目前已選擇 User Preset「${preset.name}」；可載入、覆蓋儲存或刪除。`
   );
+}
+
+async function refreshBridgePresets(options = {}) {
+  const {
+    silent = false,
+    selectedPresetId = bridgeElements.presetSelect?.value || DEFAULT_BRIDGE_PRESET_ID,
+  } = options;
+
+  try {
+    const presetResult = await window.bridgeSimulator.getPresets();
+    applyBridgePresetLists(
+      presetResult.defaultPresets,
+      presetResult.userPresets,
+      selectedPresetId
+    );
+  } catch (error) {
+    applyBridgePresetLists(bridgeDefaultPresets, [], selectedPresetId);
+
+    if (!silent) {
+      setPanelMessage(bridgeElements.messageBox, `讀取 Preset 清單失敗：${error.message}`, 'error');
+    }
+  }
 }
 
 function updateUrlPreview() {
@@ -1510,17 +1695,17 @@ async function loadBridgePreset(options = {}) {
   try {
     const preset = getBridgePresetById(bridgeElements.presetSelect?.value);
     if (!preset) {
-      throw new Error('目前沒有可用的 Bridge preset。');
+      throw new Error('請先選擇要載入的 Preset。');
     }
 
     const mappings = cloneBridgePresetMappings(preset.mappings);
     renderBridgeMappingTable(mappings);
     setBridgePreviewModeText(
-      `已載入 Preset「${preset.label}」到表格，共 ${mappings.length} 筆；目前仍未儲存到 main process。`
+      `已載入 ${preset.scope === 'default' ? 'Default' : 'User'} Preset「${preset.name}」到表格，共 ${mappings.length} 筆；目前仍未儲存到 main process。`
     );
 
     if (!silent) {
-      setPanelMessage(bridgeElements.messageBox, `已載入 Preset「${preset.label}」。`, 'success');
+      setPanelMessage(bridgeElements.messageBox, `已載入 Preset「${preset.name}」。`, 'success');
     }
   } catch (error) {
     setPanelMessage(bridgeElements.messageBox, `載入 Preset 失敗：${error.message}`, 'error');
@@ -1547,6 +1732,53 @@ async function saveBridgeMappings() {
     setPanelMessage(bridgeElements.messageBox, '已儲存 Mapping 到 main process。', 'success');
   } catch (error) {
     setPanelMessage(bridgeElements.messageBox, `儲存 Mapping 失敗：${error.message}`, 'error');
+  }
+}
+
+async function saveBridgeUserPreset() {
+  try {
+    const presetName = bridgeElements.presetNameInput?.value ?? '';
+    const selectedPreset = getBridgePresetById(bridgeElements.presetSelect?.value);
+    const mappings = collectBridgeMappingsFromTable();
+    const result = await window.bridgeSimulator.saveUserPreset({
+      id: selectedPreset?.scope === 'user' ? selectedPreset.id : undefined,
+      name: presetName,
+      description: selectedPreset?.scope === 'user' ? selectedPreset.description : '',
+      mappings,
+    });
+
+    applyBridgePresetLists(
+      bridgePresetState.defaultPresets,
+      result.userPresets,
+      result.preset.id
+    );
+    bridgeElements.presetNameInput.value = result.preset.name;
+    setBridgePreviewModeText(
+      `已儲存 User Preset「${result.preset.name}」，共 ${result.preset.mappings.length} 筆 mapping。`
+    );
+    setPanelMessage(bridgeElements.messageBox, `已儲存使用者 Preset「${result.preset.name}」。`, 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `儲存 Preset 失敗：${error.message}`, 'error');
+  }
+}
+
+async function deleteBridgeUserPreset() {
+  try {
+    const preset = getBridgePresetById(bridgeElements.presetSelect?.value);
+    if (!preset || preset.scope !== 'user') {
+      throw new Error('目前選取的不是可刪除的使用者 Preset。');
+    }
+
+    const result = await window.bridgeSimulator.deleteUserPreset(preset.id);
+    applyBridgePresetLists(
+      bridgePresetState.defaultPresets,
+      result.userPresets,
+      DEFAULT_BRIDGE_PRESET_ID
+    );
+    setBridgePreviewModeText(`已刪除 User Preset「${preset.name}」。`);
+    setPanelMessage(bridgeElements.messageBox, `已刪除使用者 Preset「${preset.name}」。`, 'success');
+  } catch (error) {
+    setPanelMessage(bridgeElements.messageBox, `刪除 Preset 失敗：${error.message}`, 'error');
   }
 }
 
@@ -1786,8 +2018,16 @@ async function init() {
   updateBridgeUrlPreview();
   modbusElements.feedbackMappingModeSelect = ensureModbusFeedbackMappingModeField();
   modbusElements.undefinedBooleanModeSelect = ensureModbusUndefinedBooleanModeField();
-  bridgeElements.presetSelect = ensureBridgePresetField();
+  ensureBridgePresetControls();
   syncModbusGeneratorTypeOptions();
+
+  bridgeElements.newPresetButton?.addEventListener('click', createNewBridgePresetDraft);
+  bridgeElements.savePresetButton?.addEventListener('click', saveBridgeUserPreset);
+  bridgeElements.deletePresetButton?.addEventListener('click', deleteBridgeUserPreset);
+  bridgeElements.presetSelect?.addEventListener('change', () => {
+    selectBridgePreset(bridgeElements.presetSelect?.value, { preserveNameInput: false });
+    updateBridgePresetSelectionHint();
+  });
 
   await refreshApiStatus();
   await updatePayloadEditor();
@@ -1798,8 +2038,9 @@ async function init() {
   await refreshModbusLogs();
   await refreshBridgeStatus();
   await refreshBridgeLogs();
+  await refreshBridgePresets({ silent: true });
   await loadBridgeMappingsFromMain({ silent: true });
-  bridgeElements.presetSelect?.addEventListener('change', updateBridgePresetSelectionHint);
+  updateBridgePresetSelectionHint();
 
   setInterval(refreshApiStatus, 1500);
   setInterval(refreshApiLogs, 1000);
