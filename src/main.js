@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
@@ -111,11 +111,12 @@ function setDockIconIfNeeded() {
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 820,
-    minWidth: 980,
-    minHeight: 680,
+    width: 1440,
+    height: 900,
+    minWidth: 1280,
+    minHeight: 760,
     icon: resolveAppIconPath(),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -130,6 +131,8 @@ function createWindow() {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
   }
+
+  mainWindow.setMenuBarVisibility(false);
 }
 
 function registerIpc() {
@@ -267,6 +270,7 @@ function registerIpc() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   registerIpc();
   setDockIconIfNeeded();
   createWindow();

@@ -17,12 +17,53 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: #0b0f1a;
   color: #e5e7eb;
+}
+
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: #263862 #0b1220;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: #0b1220;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: #1e3a8a;
+  border-radius: 999px;
+  border: 2px solid #0b1220;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  background: #2b4fb3;
+}
+
+#app {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
 }
 
 button,
@@ -58,6 +99,14 @@ select {
   padding: 10px 12px;
   background: #111827;
   color: #e5e7eb;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(87, 147, 244, 0.459);
 }
 
 textarea {
@@ -137,9 +186,19 @@ th {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   padding: 24px 28px;
   background: #0f172a;
   border-bottom: 1px solid #1f2a3a;
+}
+
+.app-header > * {
+  min-width: 0;
+}
+
+.app-header > :first-child {
+  flex: 1 1 420px;
 }
 
 .header-status-group {
@@ -147,6 +206,8 @@ th {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .status-badge {
@@ -179,6 +240,7 @@ th {
 .mode-tabs {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
   padding: 14px 28px 0;
   background: #0f172a;
   border-bottom: 1px solid #1f2a3a;
@@ -207,12 +269,16 @@ th {
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   padding: 20px 28px 28px;
 }
 
 .card {
+  min-width: 0;
   border: 1px solid #1f2a3a;
   border-radius: 18px;
   padding: 18px;
@@ -359,7 +425,8 @@ th {
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -378,7 +445,9 @@ th {
 .button-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+  min-width: 0;
   margin-top: 16px;
 }
 
@@ -484,7 +553,9 @@ th {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 16px;
+  min-width: 0;
 }
 
 .empty {
@@ -679,7 +750,11 @@ th {
 }
 
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .help-text {
