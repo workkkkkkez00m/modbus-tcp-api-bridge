@@ -13,7 +13,11 @@
         <h1>BMS Protocol Mock Lab</h1>
         <p>Mock app-API Simulator/Modbus TCP Simulator/Modbus → API Bridge</p>
       </div>
-      <div id="serverBadge" class="badge badge-stopped">API 已停止</div>
+      <div class="header-status-group">
+        <div id="serverBadge" class="badge badge-stopped status-badge">API 已停止</div>
+        <div id="modbusStatusBadge" class="badge badge-stopped status-badge">Modbus 已停止</div>
+        <div id="bridgeStatusBadge" class="badge badge-stopped status-badge">Bridge 未啟用</div>
+      </div>
     </header>
 
     <nav class="mode-tabs" aria-label="Simulator modes">

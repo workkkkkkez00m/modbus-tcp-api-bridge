@@ -112,6 +112,8 @@ const apiElements = {
   restartButton: document.querySelector('#restartButton'),
   clearLogsButton: document.querySelector('#clearLogsButton'),
   serverBadge: document.querySelector('#serverBadge'),
+  modbusStatusBadge: document.querySelector('#modbusStatusBadge'),
+  bridgeStatusBadge: document.querySelector('#bridgeStatusBadge'),
   currentUrl: document.querySelector('#currentUrl'),
   payloadEditor: document.querySelector('#payloadEditor'),
   payloadValidation: document.querySelector('#payloadValidation'),
@@ -509,6 +511,20 @@ function getSafeApiResponseSourceMode(value) {
   return SUPPORTED_API_RESPONSE_SOURCE_MODES.includes(value) ? value : 'manual';
 }
 
+function renderBridgeResponseSourceBadge(mode) {
+  if (!apiElements.bridgeStatusBadge) {
+    return;
+  }
+
+  const safeMode = getSafeApiResponseSourceMode(mode);
+  const isBridgeEnabled = safeMode === 'bridge';
+
+  apiElements.bridgeStatusBadge.textContent = isBridgeEnabled ? 'Bridge 啟用' : 'Bridge 未啟用';
+  apiElements.bridgeStatusBadge.className = isBridgeEnabled
+    ? 'badge status-badge badge-running'
+    : 'badge status-badge badge-stopped';
+}
+
 function syncApiResponseSourceModeUi(value) {
   if (!apiElements.responseSourceSelect) {
     return 'manual';
@@ -522,6 +538,7 @@ function syncApiResponseSourceModeUi(value) {
 function persistApiResponseSourceMode(value) {
   const safeMode = syncApiResponseSourceModeUi(value);
   localStorage.setItem(API_RESPONSE_SOURCE_MODE_STORAGE_KEY, safeMode);
+  renderBridgeResponseSourceBadge(safeMode);
   return safeMode;
 }
 
@@ -1022,7 +1039,9 @@ function renderApiStatus(status, options = {}) {
   } = options;
 
   apiElements.serverBadge.textContent = status.running ? 'API 執行中' : 'API 已停止';
-  apiElements.serverBadge.className = status.running ? 'badge badge-running' : 'badge badge-stopped';
+  apiElements.serverBadge.className = status.running
+    ? 'badge status-badge badge-running'
+    : 'badge status-badge badge-stopped';
 
   if (status.config && syncConfig) {
     apiElements.hostInput.value = status.config.host;
@@ -1310,6 +1329,13 @@ function renderModbusStatus(status, options = {}) {
   modbusElements.statusBadge.className = running
     ? 'badge badge-running status-running'
     : 'badge badge-stopped status-stopped';
+
+  if (apiElements.modbusStatusBadge) {
+    apiElements.modbusStatusBadge.textContent = running ? 'Modbus 執行中' : 'Modbus 已停止';
+    apiElements.modbusStatusBadge.className = running
+      ? 'badge status-badge badge-running'
+      : 'badge status-badge badge-stopped';
+  }
 
   modbusElements.endpoint.textContent = status.endpoint || '-';
   modbusElements.unitIdText.textContent = String(status.unitId ?? '-');

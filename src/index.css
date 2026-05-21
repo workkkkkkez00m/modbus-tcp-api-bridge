@@ -142,6 +142,17 @@ th {
   border-bottom: 1px solid #1f2a3a;
 }
 
+.header-status-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  white-space: nowrap;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 24px;
