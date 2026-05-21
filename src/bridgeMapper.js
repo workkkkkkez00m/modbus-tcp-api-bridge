@@ -119,12 +119,19 @@ function createMissingMappingRecord({ mapping, fallbackApplied }) {
   };
 }
 
-function buildBridgePayload({ points, mappings, includeTimestamp } = {}) {
+function shouldIncludeTimestamp(includeTimestamp) {
+  return includeTimestamp !== false;
+}
+
+function buildBridgePayload({ points, mappings, includeTimestamp = true } = {}) {
   const payload = {};
+  const autoTimestamp = shouldIncludeTimestamp(includeTimestamp)
+    ? new Date().toISOString()
+    : null;
   const diagnostics = {
     appliedMappings: [],
     missingMappings: [],
-    timestamp: includeTimestamp ? new Date().toISOString() : null,
+    timestamp: autoTimestamp,
   };
 
   for (const mapping of normalizeMappingList(mappings)) {
@@ -163,6 +170,10 @@ function buildBridgePayload({ points, mappings, includeTimestamp } = {}) {
         usedFallback,
       })
     );
+  }
+
+  if (autoTimestamp && !Object.hasOwn(payload, 'timestamp')) {
+    payload.timestamp = autoTimestamp;
   }
 
   return {
