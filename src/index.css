@@ -455,29 +455,6 @@ th {
   font-size: 13px;
 }
 
-.response-source-help {
-  margin-top: 14px;
-  border: 1px solid #1f2a3a;
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: #0b1220;
-}
-
-.response-source-help p {
-  margin: 0;
-  color: #cbd5e1;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.response-source-help p + p {
-  margin-top: 8px;
-}
-
-.response-source-help strong {
-  color: #e5e7eb;
-}
-
 .command-list {
   display: flex;
   flex-wrap: wrap;
@@ -788,7 +765,7 @@ th {
   padding: 10px 12px;
   border: 1px solid #2a3a52;
   border-radius: 10px;
-  background: #14203a;
+  background: #263e71;
   color: #e5e7eb;
   font-size: 12px;
   line-height: 1.5;

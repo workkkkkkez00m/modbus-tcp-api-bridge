@@ -64,6 +64,14 @@
                 <option value="custom">custom</option>
               </select>
             </label>
+
+            <label class="full">
+              <span class="label-text">API 回應來源 <span class="tooltip-indicator has-tooltip" data-tooltip="Scenario / Payload Editor：使用目前 API Simulator 的 scenario 或自訂 payload。&#10;Modbus Bridge：使用 Modbus Simulator 目前點位，依 Bridge Mapping 產生 API JSON。" tabindex="0" aria-label="API 回應來源提示">?</span></span>
+              <select id="apiResponseSourceSelect">
+                <option value="manual">Scenario / Payload Editor</option>
+                <option value="bridge">Modbus Bridge</option>
+              </select>
+            </label>
           </div>
           <div class="button-row">
             <button id="startButton">啟動 API Server</button>
@@ -77,25 +85,6 @@
           </div>
 
           <div id="messageBox" class="message"></div>
-        </section>
-
-        <section class="card">
-          <h2>API 回應來源</h2>
-
-          <div class="grid">
-            <label class="full">
-              回應來源模式
-              <select id="apiResponseSourceSelect">
-                <option value="manual">Scenario / Payload Editor</option>
-                <option value="bridge">Modbus Bridge</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="response-source-help">
-            <p><strong>Scenario / Payload Editor：</strong>使用目前 API Simulator 的 scenario 或自訂 payload。</p>
-            <p><strong>Modbus Bridge：</strong>使用 Modbus Simulator 目前點位，依 Bridge Mapping 產生 API JSON。</p>
-          </div>
         </section>
 
         <section class="card">
@@ -243,8 +232,8 @@ http://127.0.0.1:3101/api/energy?scenario=custom</pre>
               <input id="modbusHostInput" value="127.0.0.1" />
             </label>
 
-            <label class="has-tooltip" data-tooltip="Port 502 可能需要系統管理員權限，建議本機測試使用 1502。">
-              <span class="label-text">Port <span class="tooltip-indicator" aria-hidden="true">?</span></span>
+            <label>
+              <span class="label-text">Port <span class="tooltip-indicator has-tooltip" data-tooltip="Port 502 可能需要系統管理員權限，建議本機測試使用 1502。" tabindex="0" aria-label="Port 提示">?</span></span>
               <input id="modbusPortInput" type="number" value="1502" />
             </label>
 
@@ -252,8 +241,8 @@ http://127.0.0.1:3101/api/energy?scenario=custom</pre>
               Unit ID
               <input id="modbusUnitIdInput" type="number" value="1" />
             </label>
-            <label class="full has-tooltip" data-tooltip="若外部 BMS 將警報點 1 讀成 request address 1，請切換為 Legacy 1-based compatible。">
-              <span class="label-text">請求位址解析模式 Request Address Base Mode <span class="tooltip-indicator" aria-hidden="true">?</span></span>
+            <label class="full">
+              <span class="label-text">請求位址解析模式 Request Address Base Mode <span class="tooltip-indicator has-tooltip" data-tooltip="若外部 BMS 將警報點 1 讀成 request address 1，請切換為 Legacy 1-based compatible。" tabindex="0" aria-label="請求位址解析模式提示">?</span></span>
               <select id="modbusRequestAddressBaseModeSelect">
                 <option value="standard-0-based" selected>Standard 0-based：request 0 = internal 0</option>
                 <option value="legacy-1-based-compatible">Legacy 1-based：request 1 = internal 0</option>
@@ -289,8 +278,8 @@ http://127.0.0.1:3101/api/energy?scenario=custom</pre>
           <h2>點位產生器 <span id="modbusGeneratorHint" class="tooltip-indicator has-tooltip" data-tooltip="" tabindex="0" aria-label="點位產生器提示">?</span></h2>
 
           <div class="grid">
-            <label class="full has-tooltip" data-tooltip="Coil 0x 與 Holding Register 4x 可被 Modbus client 寫入。Discrete Input 1x 與 Input Register 3x 為唯讀。">
-              <span class="label-text">暫存器類型 <span class="tooltip-indicator" aria-hidden="true">?</span></span>
+            <label class="full">
+              <span class="label-text">暫存器類型 <span class="tooltip-indicator has-tooltip" data-tooltip="Coil 0x 與 Holding Register 4x 可被 Modbus client 寫入。Discrete Input 1x 與 Input Register 3x 為唯讀。" tabindex="0" aria-label="暫存器類型提示">?</span></span>
               <select id="modbusRegisterType">
                 <option value="coil">線圈 Coil 0x</option>
                 <option value="discreteInput">離散輸入 Discrete Input 1x</option>
@@ -304,8 +293,8 @@ http://127.0.0.1:3101/api/energy?scenario=custom</pre>
               <input id="modbusStartAddressInput" type="number" value="1" />
             </label>
 
-            <label class="full has-tooltip" data-tooltip="Reference 模式：輸入 1 或 100001 都代表第一點。Protocol 模式：輸入 0 代表第一點。">
-              <span class="label-text">位址輸入模式 Address Input Mode <span class="tooltip-indicator" aria-hidden="true">?</span></span>
+            <label class="full">
+              <span class="label-text">位址輸入模式 Address Input Mode <span class="tooltip-indicator has-tooltip" data-tooltip="Reference 模式：輸入 1 或 100001 都代表第一點。Protocol 模式：輸入 0 代表第一點。" tabindex="0" aria-label="位址輸入模式提示">?</span></span>
               <select id="modbusAddressInputModeSelect">
                 <option value="reference" selected>Reference Address / 1-based 相容模式</option>
                 <option value="protocol">Protocol Address / 0-based 模式</option>

@@ -222,16 +222,17 @@ function ensureModbusUndefinedBooleanModeField() {
   }
 
   const label = document.createElement('label');
-  label.className = 'full has-tooltip stacked-field';
-  label.dataset.tooltip = '若 BMS 一次讀取較大範圍，且範圍內包含未建立的 Coil / Discrete Input，可使用 Compatibility 模式避免整段讀取失敗。';
+  label.className = 'full stacked-field';
 
   const labelText = document.createElement('span');
   labelText.className = 'label-text';
   labelText.textContent = '未建立布林位址處理模式';
   const indicator = document.createElement('span');
-  indicator.className = 'tooltip-indicator';
+  indicator.className = 'tooltip-indicator has-tooltip';
   indicator.textContent = '?';
-  indicator.setAttribute('aria-hidden', 'true');
+  indicator.dataset.tooltip = '若 BMS 一次讀取較大範圍，且範圍內包含未建立的 Coil / Discrete Input，可使用 Compatibility 模式避免整段讀取失敗。';
+  indicator.setAttribute('tabindex', '0');
+  indicator.setAttribute('aria-label', '未建立布林位址處理模式提示');
   labelText.appendChild(indicator);
 
   select = document.createElement('select');
@@ -258,16 +259,17 @@ function ensureModbusFeedbackMappingModeField() {
   }
 
   const label = document.createElement('label');
-  label.className = 'full has-tooltip stacked-field';
-  label.dataset.tooltip = '啟用後，外部 BMS 寫入 Coil 控制點時，mock server 會自動更新同 offset 的 Discrete Input，模擬 PLC / DDC 狀態回饋。';
+  label.className = 'full stacked-field';
 
   const labelText = document.createElement('span');
   labelText.className = 'label-text';
   labelText.textContent = '控制回饋映射模式 Feedback Mapping Mode';
   const indicator = document.createElement('span');
-  indicator.className = 'tooltip-indicator';
+  indicator.className = 'tooltip-indicator has-tooltip';
   indicator.textContent = '?';
-  indicator.setAttribute('aria-hidden', 'true');
+  indicator.dataset.tooltip = '啟用後，外部 BMS 寫入 Coil 控制點時，mock server 會自動更新同 offset 的 Discrete Input，模擬 PLC / DDC 狀態回饋。';
+  indicator.setAttribute('tabindex', '0');
+  indicator.setAttribute('aria-label', '控制回饋映射模式提示');
   labelText.appendChild(indicator);
 
   select = document.createElement('select');
