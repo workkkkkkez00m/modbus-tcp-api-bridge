@@ -509,14 +509,18 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
         <section class="card full-width bridge-intro-card">
           <div class="section-title-row">
             <div>
-              <h2>Bridge Mapping 進階設定</h2>
-              <p class="muted">一般測試請回到 API Simulator 選擇 Modbus Bridge；此頁聚焦 mapping、Preview 與 Diagnostics。</p>
+              <h2>
+                <span class="label-text">Bridge Mapping 進階設定
+                  <span
+                    class="tooltip-indicator has-tooltip"
+                    data-tooltip="一般測試請在 API Simulator 的「API 回應來源」選擇 Modbus Bridge。&#10;此頁只用於設定 Modbus points 轉 API JSON 的 mapping。"
+                    tabindex="0"
+                    aria-label="Bridge Mapping 進階設定說明"
+                  >?</span>
+                </span>
+              </h2>
+              <p class="muted">此頁聚焦 mapping、Preview 與 Diagnostics。</p>
             </div>
-          </div>
-
-          <div class="bridge-callout">
-            <p><strong>一般測試請在 API Simulator 的「API 回應來源」選擇 Modbus Bridge。</strong></p>
-            <p>此頁只用於設定 Modbus points 轉 API JSON 的 mapping。</p>
           </div>
 
           <div class="info-box bridge-workflow-box">
@@ -541,7 +545,7 @@ sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
             <button id="bridgeReloadMappingsButton" class="secondary">讀取</button>
             <button id="bridgeLoadMappingsButton" class="secondary">載入 Sample Mapping</button>
             <button id="bridgeAddMappingButton">新增</button>
-            <button id="bridgeSaveMappingsButton" class="secondary">儲存</button>
+            <button id="bridgeSaveMappingsButton" class="bridge-preset-save">儲存</button>
           </div>
 
           <p class="help-text">JSON Path 僅支援物件點號路徑，例如 <code>site.power.total</code>；不支援 array path。</p>
