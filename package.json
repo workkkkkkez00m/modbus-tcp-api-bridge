@@ -1,8 +1,8 @@
 {
-  "name": "bms-meter-api-mock",
-  "productName": "bms-meter-api-mock",
+  "name": "modbus-tcp-api-bridge",
+  "productName": "modbus-tcp-api-bridge",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Standalone Electron + Vite mock app with API Simulator, Modbus TCP Simulator, and Modbus-to-API bridge mapping.",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "keywords": [],
   "author": {
-    "name": "LI,WEI-MING",
+    "name": "Kenneth,Li",
     "email": "workonly1022@gmail.com"
   },
   "license": "MIT",

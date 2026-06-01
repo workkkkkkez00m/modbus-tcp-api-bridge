@@ -92,6 +92,6 @@ typings/
 out/
 
 docs/
-.AGENTS.md
+**/AGENTS.md
 
 .codegraph/
