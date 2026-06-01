@@ -1,5 +1,5 @@
 # AGENTS.md
-
+Use codegraph to analyze callers/callees before editing.
 ## 專案定位
 
 本專案是獨立的 Electron + Vite 測試工具。

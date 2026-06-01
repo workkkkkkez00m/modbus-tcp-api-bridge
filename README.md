@@ -1,14 +1,16 @@
-# BMS Protocol Mock Lab
+# modbus-tcp-api-bridge
 
-以 Electron + Vite 建立的獨立 mock app，提供 API Simulator、Modbus TCP Simulator，以及作為 API Simulator 回應來源的 Modbus Bridge Mapping。
+[English](./README.md) | [繁體中文](./README.zh-TW.md)
 
-## 安裝
+A standalone mock app built with Electron and Vite, with Codex-assisted development, providing an API Simulator, a Modbus TCP Simulator, and Modbus Bridge Mapping as a response source for the API Simulator.
+
+## Install
 
 ```bash
 npm install
 ```
 
-## 啟動
+## Start
 
 ```bash
 npm start
@@ -16,7 +18,13 @@ npm start
 
 ## API Simulator
 
-### API 路由
+### Controls
+
+- Host / Port / API Path / Delay (ms).
+- Response Source: `Scenario / Payload Editor` or `Modbus Bridge`.
+- Request Log keeps the most recent 100 entries.
+
+### Routes
 
 - `GET /health`
 - `GET /api/energy`
@@ -28,19 +36,42 @@ npm start
 - `GET /api/energy?scenario=timeout`
 - `GET /api/energy?scenario=custom`
 
-### Scenario
+### Scenario Rules
 
-- `normal`：回傳完整 energy payload
-- `no-total`：移除 `total`
-- `http-500`：回傳 HTTP 500
-- `invalid-json`：回傳非合法 JSON
-- `invalid-schema`：回傳欄位缺漏或型別錯誤的 JSON
-- `timeout`：延長回應時間，模擬 timeout
-- `custom`：回傳目前 Payload Editor 內容
+- `normal`: full energy payload
+- `no-total`: remove `total`
+- `http-500`: respond with HTTP 500
+- `invalid-json`: respond with invalid JSON
+- `invalid-schema`: respond with missing or invalid fields
+- `timeout`: delay response (min 10s)
+- `custom`: respond with current Payload Editor content
+
+Scenario can be overridden per request with `?scenario=...`.
+
+When Response Source is `Modbus Bridge`, the API response payload is always the bridge payload (scenario is only used for logging and delay).
+
+### Payload Editor
+
+- Apply current JSON to `custom` scenario.
+- Format JSON and reset example payload for the current scenario.
 
 ## Modbus TCP Simulator
 
-R3 支援：
+### Server Controls
+
+- Host / Port / Unit ID.
+- Request Address Base Mode:
+  - Standard 0-based: request address 0 = internal 0.
+  - Legacy 1-based: request address 1 = internal 0 (request 0 still resolves to 0).
+
+### Register Generator
+
+- Address Input Mode:
+  - Reference Address / 1-based: input `1` or full address like `100001` for the first point. Input `0` is invalid.
+  - Protocol Address / 0-based: input `0` for the first point.
+- `Count` must be a multiple of the type span (e.g. `int` = 2 registers, `long` = 4 registers).
+
+### Supported Functions and Data Types
 
 - Coil 0x
 - Discrete Input 1x
@@ -54,65 +85,72 @@ R3 支援：
 - FC06 Write Single Holding Register
 - FC15 Write Multiple Coils
 - FC16 Write Multiple Holding Registers
-- short
-- int
-- long
-- float
-- double
-- binary
-- HL / LH word order
-- manual / random / increment / toggle / sine actions
-- request log
+- short / int / long / float / double / binary
+- HL / LH word order (multi-register types)
+- actions: manual / random / increment / toggle / sine
+- request log (latest 100 entries)
 
-### 位址規則
+### Address Rules
 
-內部 address 使用 Modbus protocol address，從 0 開始。
+Internal address uses Modbus protocol address (0-based).
 
-Display address：
+Display (Reference) address:
 
-- Coil 0x：address 0 = 00001
-- Discrete Input 1x：address 0 = 10001
-- Input Register 3x：address 0 = 30001
-- Holding Register 4x：address 0 = 40001
+- Coil 0x: address 0 = 000001
+- Discrete Input 1x: address 0 = 100001
+- Input Register 3x: address 0 = 300001
+- Holding Register 4x: address 0 = 400001
 
-### 注意事項
+### Notes
 
-- Port 502 可能需要系統管理員權限，建議本機測試使用 1502。
-- Discrete Input 1x 與 Input Register 3x 為唯讀。
-- Coil 0x 與 Holding Register 4x 可寫入。
-- `Count` 使用 protocol address 數量；若資料型別需要多個 register，請使用對應倍數。
-- `long` 以 64-bit signed integer 編解碼，UI 建議輸入整數字串；超出 JavaScript safe integer 範圍時，action 設定請避免依賴高精度數值運算。
-- R4 將新增 Modbus → API Bridge。
+- Port 502 may require admin privileges. For local testing, use 1502.
+- Discrete Input 1x and Input Register 3x are read-only.
+- Coil 0x and Holding Register 4x are writable.
+- `long` uses 64-bit signed integer encoding. Use integer strings in the UI when exceeding JavaScript safe integer range.
 
-### 控制回饋映射模式 Feedback Mapping Mode
+### Undefined Boolean Address Mode
 
-此模式用於模擬 PLC / DDC 收到 Coil 控制命令後，將狀態回饋到 Discrete Input。
+Controls how undefined Coil/Discrete Input addresses are handled during reads:
 
-- `Disabled`：不自動回饋
-- `Coil write → Discrete Input same address`：寫入 Coil 後，同步同 offset 的 Discrete Input
+- `Compatibility`: undefined addresses return false / 0.
+- `Strict`: undefined addresses return Modbus exception.
 
-範例：
+### Feedback Mapping Mode
+
+Simulates PLC/DDC feedback by writing Coil changes into Discrete Input.
+
+- `Disabled`: no auto feedback.
+- `Coil write → Discrete Input same address`: after Coil write or manual Coil apply, update Discrete Input at the same offset.
+
+Example:
 
 ```text
 Coil 000001 = true
 => Discrete Input 100001 = true
 ```
 
-注意：
-此功能不是 Coil / Discrete Input mirror。
-它只在 Coil 寫入或 Coil 手動套用時，單向更新 Discrete Input。
+Note: this is not a Coil/Discrete Input mirror. It only updates Discrete Input on Coil writes or manual Coil apply.
 
-## Modbus → API Bridge Mapping
+## Modbus to API Bridge Mapping
 
-Bridge 不再提供獨立 HTTP API Server。
+Bridge does not provide a standalone HTTP API server. The API response uses Bridge data only when the API Simulator Response Source is set to `Modbus Bridge`.
 
-Bridge 的定位是：
+Bridge roles:
 
-- Modbus TCP Simulator 的點位資料來源
-- API Simulator 的 response source
-- Mapping Table / Preset / Payload Preview / Diagnostics 設定區
+- data source for Modbus TCP Simulator points
+- response source for API Simulator
+- Mapping Table / Preset / Payload Preview / Diagnostics settings
 
-目前只保留最小必要 preset：
+### Mapping Rules
+
+- Internal mapping key is `regType + protocolAddress` (not point ID or reference address).
+- JSON Path supports dot notation only (no array path).
+- Transform types: `raw`, `number`, `boolean`, `string`.
+- Optional fallback value per mapping.
+
+### Presets
+
+Default presets:
 
 - `Sample Boolean`
   - `sample.coil1 <= coil protocolAddress 0`
@@ -124,35 +162,13 @@ Bridge 的定位是：
   - `plumbing.pumps.pump11.run <= discreteInput protocolAddress 20`
   - `plumbing.pumps.pump11.fault <= discreteInput protocolAddress 21`
 
-### 一般流程
+User presets can be created, saved, and deleted in the Bridge Mapping panel.
 
-1. 啟動 Modbus TCP Simulator。
-2. 設定點位與相容模式。
-3. 到 Bridge Mapping 進階設定選擇 preset，必要時再微調 mapping。
-4. 使用 Payload Preview 與 Diagnostics 確認輸出結果。
-5. 回 API Simulator，將 API 回應來源切到 Modbus Bridge。
-6. 啟動 API Server，並使用 API Simulator 的 URL 呼叫結果。
+### Typical Flow
 
-## Roadmap
-
-### R1
-
-- Mode Tabs UI
-- API Simulator
-
-### R2
-
-- Modbus TCP Simulator 基礎版
-- Holding Register 4x
-- FC03 / FC06 / FC16
-
-### R3
-
-- 完整 Register Type / Data Type / Action
-- 中文優先 UI
-- 完整 Modbus Request Log
-
-### R4
-
-- Modbus → API Bridge
-- register 到 HTTP API payload 的 mapping rules
+1. Start Modbus TCP Simulator.
+2. Configure points and address modes.
+3. In Bridge Mapping advanced settings, select a preset and adjust mappings if needed.
+4. Use Payload Preview and Diagnostics to confirm output.
+5. Back in API Simulator, switch response source to Modbus Bridge.
+6. Start API Server and call the API Simulator URL.
