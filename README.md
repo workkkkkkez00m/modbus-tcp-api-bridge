@@ -172,3 +172,13 @@ User presets can be created, saved, and deleted in the Bridge Mapping panel.
 4. Use Payload Preview and Diagnostics to confirm output.
 5. Back in API Simulator, switch response source to Modbus Bridge.
 6. Start API Server and call the API Simulator URL.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=workkkkkkez00m%2Fmodbus-tcp-api-bridge&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left" />
+ </picture>
+</a>
