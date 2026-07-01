@@ -215,6 +215,17 @@ th {
   min-width: 0;
 }
 
+.locale-switcher {
+  width: auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.locale-switcher select {
+  min-width: 120px;
+}
+
 .status-badge {
   white-space: nowrap;
 }
@@ -876,6 +887,10 @@ th {
     padding: 20px 16px;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .header-status-group {
+    width: 100%;
   }
 
   .section-title-row,

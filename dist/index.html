@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <title data-i18n="app.meta.title">BMS Protocol Mock Lab</title>
+  <script type="module" crossorigin src="/assets/index-C7nn-RJ-.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BZNI91m3.css">
+</head>
+
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div>
+        <h1 data-i18n="app.header.title">BMS Protocol Mock Lab</h1>
+        <p data-i18n="app.header.subtitle">Mock app-API Simulator/Modbus TCP Simulator/Modbus → API Bridge</p>
+      </div>
+      <div class="header-tools-group">
+        <label class="locale-switcher" for="localeSelect">
+          <span data-i18n="app.header.localeLabel">語系</span>
+          <select id="localeSelect">
+            <option value="zh-Hant" data-i18n="app.locale.zh-Hant">繁體中文</option>
+            <option value="en" data-i18n="app.locale.en">English</option>
+          </select>
+        </label>
+      </div>
+      <div class="header-status-group">
+        <div id="serverBadge" class="badge badge-stopped status-badge">API 已停止</div>
+        <div id="modbusStatusBadge" class="badge badge-stopped status-badge">Modbus 已停止</div>
+        <div id="bridgeStatusBadge" class="badge badge-stopped status-badge">Bridge 未啟用</div>
+      </div>
+    </header>
+
+    <nav class="mode-tabs" aria-label="Simulator modes" data-i18n-attr="aria-label" data-i18n-attr-key="app.nav.ariaLabel">
+      <button class="mode-tab active" data-mode="api" data-i18n="app.mode.api">API 模擬器</button>
+      <button class="mode-tab" data-mode="modbus" data-i18n="app.mode.modbus">Modbus TCP 模擬器</button>
+      <button class="mode-tab" data-mode="bridge" data-i18n="app.mode.bridge">Bridge Mapping 進階設定</button>
+    </nav>
+
+    <section id="apiPanel" class="mode-panel active" data-mode-panel="api">
+      <main class="layout">
+        <section class="card">
+          <h2 data-i18n="app.section.apiServer">API Server 控制</h2>
+
+          <div class="grid">
+            <label>
+              Host
+              <input id="hostInput" value="127.0.0.1" />
+            </label>
+
+            <label>
+              Port
+              <input id="portInput" type="number" value="3101" />
+            </label>
+
+            <label>
+              API Path
+              <input id="pathInput" value="/api/energy" />
+            </label>
+
+            <label>
+              延遲毫秒 Delay (ms)
+              <input id="delayInput" type="number" value="0" />
+            </label>
+
+            <label class="full">
+              Scenario
+              <select id="scenarioSelect">
+                <option value="normal">normal</option>
+                <option value="no-total">no-total</option>
+                <option value="http-500">http-500</option>
+                <option value="invalid-json">invalid-json</option>
+                <option value="invalid-schema">invalid-schema</option>
+                <option value="timeout">timeout</option>
+                <option value="custom">custom</option>
+              </select>
+            </label>
+
+            <label class="full">
+              <span class="label-text">API 回應來源 <span class="tooltip-indicator has-tooltip" data-tooltip="Scenario / Payload Editor：使用目前 API Simulator 的 scenario 或自訂 payload。&#10;Modbus Bridge：使用 Modbus Simulator 目前點位，依 Bridge Mapping 產生 API JSON。" tabindex="0" aria-label="API 回應來源提示">?</span></span>
+              <select id="apiResponseSourceSelect">
+                <option value="manual">Scenario / Payload Editor</option>
+                <option value="bridge">Modbus Bridge</option>
+              </select>
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="startButton">啟動 API Server</button>
+            <button id="stopButton" class="secondary">停止 API Server</button>
+            <button id="restartButton" class="secondary">重新啟動 API Server</button>
+          </div>
+
+          <div class="info-box">
+            <div class="info-label">目前 URL</div>
+            <code id="currentUrl">http://127.0.0.1:3101/api/energy</code>
+          </div>
+
+          <div id="messageBox" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>Payload 編輯器</h2>
+          <p class="muted">
+            可直接編輯 JSON Payload，套用後會切換為 <code>custom</code> scenario。
+          </p>
+
+          <textarea id="payloadEditor" spellcheck="false"></textarea>
+
+          <div class="button-row">
+            <button id="useEditedPayloadButton">套用目前 Payload</button>
+            <button id="formatJsonButton" class="secondary">格式化 JSON</button>
+            <button id="resetPayloadButton" class="secondary">重設範例</button>
+          </div>
+
+          <div id="payloadValidation" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>測試指令</h2>
+
+          <div class="command-list">
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/health"'>複製 health curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy"'>複製 normal curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=no-total"'>複製 no-total curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=http-500"'>複製 http-500 curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-json"'>複製 invalid-json curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=invalid-schema"'>複製 invalid-schema curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=timeout"'>複製 timeout curl</button>
+            <button class="copy-command" data-command='curl "http://127.0.0.1:3101/api/energy?scenario=custom"'>複製 custom curl</button>
+          </div>
+
+          <pre id="copiedCommand"></pre>
+        </section>
+
+        <section class="card">
+          <h2>使用說明</h2>
+
+          <ol class="guide-list">
+            <li>設定 Host、Port、API Path、延遲與 Scenario。</li>
+            <li>使用啟動、停止、重新啟動控制 mock API server。</li>
+            <li>可用上方 curl 指令快速驗證回應。</li>
+            <li>若要客製回應內容，可直接編輯 Payload 後套用到 custom scenario。</li>
+            <li>Request Log 最多保留最近 100 筆。</li>
+          </ol>
+
+          <h3>Scenario 說明</h3>
+          <table class="scenario-table">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>行為</th>
+                <th>用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>normal</code></td>
+                <td>回傳完整 energy payload。</td>
+                <td>驗證正常解析流程。</td>
+              </tr>
+              <tr>
+                <td><code>no-total</code></td>
+                <td>移除 payload 中的 <code>total</code>。</td>
+                <td>測試 client fallback。</td>
+              </tr>
+              <tr>
+                <td><code>http-500</code></td>
+                <td>回傳 HTTP 500。</td>
+                <td>測試錯誤處理。</td>
+              </tr>
+              <tr>
+                <td><code>invalid-json</code></td>
+                <td>回傳非合法 JSON 字串。</td>
+                <td>測試 JSON parser 失敗情境。</td>
+              </tr>
+              <tr>
+                <td><code>invalid-schema</code></td>
+                <td>回傳欄位缺漏或型別錯誤的 JSON。</td>
+                <td>測試 schema 驗證失敗情境。</td>
+              </tr>
+              <tr>
+                <td><code>timeout</code></td>
+                <td>延長回應時間，模擬 timeout。</td>
+                <td>測試 timeout handling。</td>
+              </tr>
+              <tr>
+                <td><code>custom</code></td>
+                <td>回傳目前 Payload 編輯器中的內容。</td>
+                <td>測試自訂 API 回應。</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Query String 覆寫</h3>
+          <p class="muted">
+            Request 也可加上 <code>?scenario=...</code> 覆寫目前 UI 中的 Scenario。
+          </p>
+
+          <pre>http://127.0.0.1:3101/api/energy
+http://127.0.0.1:3101/api/energy?scenario=http-500
+http://127.0.0.1:3101/api/energy?scenario=custom</pre>
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>API Request Log</h2>
+              <p class="muted">最多保留最近 100 筆 API request。</p>
+            </div>
+            <button id="clearLogsButton" class="secondary">清除 API Logs</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>Method</th>
+                  <th>Path</th>
+                  <th>Scenario</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="logTableBody">
+                <tr>
+                  <td colspan="5" class="empty">目前沒有 API Request Log。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <section id="modbusPanel" class="mode-panel" data-mode-panel="modbus">
+      <main class="layout">
+        <section class="card">
+          <h2 data-i18n="app.section.modbusServer">Modbus TCP 伺服器控制</h2>
+
+          <div class="grid">
+            <label>
+              Host
+              <input id="modbusHostInput" value="127.0.0.1" />
+            </label>
+
+            <label>
+              <span class="label-text">Port <span class="tooltip-indicator has-tooltip" data-tooltip="Port 502 可能需要系統管理員權限，建議本機測試使用 1502。" tabindex="0" aria-label="Port 提示">?</span></span>
+              <input id="modbusPortInput" type="number" value="1502" />
+            </label>
+
+            <label class="full">
+              Unit ID
+              <input id="modbusUnitIdInput" type="number" value="1" />
+            </label>
+            <label class="full">
+              <span class="label-text">請求位址解析模式 Request Address Base Mode <span class="tooltip-indicator has-tooltip" data-tooltip="若外部 BMS 將警報點 1 讀成 request address 1，請切換為 Legacy 1-based compatible。" tabindex="0" aria-label="請求位址解析模式提示">?</span></span>
+              <select id="modbusRequestAddressBaseModeSelect">
+                <option value="standard-0-based" selected>Standard 0-based：request 0 = internal 0</option>
+                <option value="legacy-1-based-compatible">Legacy 1-based：request 1 = internal 0</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="modbusStartButton">啟動 Modbus Server</button>
+            <button id="modbusStopButton" class="secondary">停止 Modbus Server</button>
+            <button id="modbusRestartButton" class="secondary">重新啟動</button>
+          </div>
+
+          <div class="info-box">
+            <div class="info-row">
+              <span class="info-label">狀態</span>
+              <span id="modbusServerStatus" class="badge badge-stopped status-stopped">已停止</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">端點</span>
+              <code id="modbusEndpoint">127.0.0.1:1502</code>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Unit ID</span>
+              <code id="modbusCurrentUnitId">1</code>
+            </div>
+          </div>
+
+          <div id="modbusMessageBox" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>點位產生器 <span id="modbusGeneratorHint" class="tooltip-indicator has-tooltip" data-tooltip="" tabindex="0" aria-label="點位產生器提示">?</span></h2>
+
+          <div class="grid">
+            <label class="full">
+              <span class="label-text">暫存器類型 <span class="tooltip-indicator has-tooltip" data-tooltip="Coil 0x 與 Holding Register 4x 可被 Modbus client 寫入。Discrete Input 1x 與 Input Register 3x 為唯讀。" tabindex="0" aria-label="暫存器類型提示">?</span></span>
+              <select id="modbusRegisterType">
+                <option value="coil">線圈 Coil 0x</option>
+                <option value="discreteInput">離散輸入 Discrete Input 1x</option>
+                <option value="inputRegister">輸入暫存器 Input Register 3x</option>
+                <option value="holdingRegister" selected>保持暫存器 Holding Register 4x</option>
+              </select>
+            </label>
+
+            <label>
+              起始位址
+              <input id="modbusStartAddressInput" type="number" value="1" />
+            </label>
+
+            <label class="full">
+              <span class="label-text">位址輸入模式 Address Input Mode <span class="tooltip-indicator has-tooltip" data-tooltip="Reference 模式：輸入 1 或 100001 都代表第一點。Protocol 模式：輸入 0 代表第一點。" tabindex="0" aria-label="位址輸入模式提示">?</span></span>
+              <select id="modbusAddressInputModeSelect">
+                <option value="reference" selected>Reference Address / 1-based 相容模式</option>
+                <option value="protocol">Protocol Address / 0-based 模式</option>
+              </select>
+            </label>
+
+            <label>
+              數量
+              <input id="modbusCountInput" type="number" value="1" />
+            </label>
+
+            <label>
+              資料型別
+              <select id="modbusValueType"></select>
+            </label>
+
+            <label>
+              字組順序
+              <select id="modbusWordOrder">
+                <option value="HL">HL</option>
+                <option value="LH">LH</option>
+              </select>
+            </label>
+
+            <label>
+              初始值
+              <input id="modbusInitialValueInput" placeholder="例如 100.3、1、true、123456789" value="0" />
+            </label>
+
+            <label>
+              動作模式
+              <select id="modbusAction">
+                <option value="manual">手動 manual</option>
+                <option value="random">隨機 random</option>
+                <option value="increment">遞增 increment</option>
+                <option value="toggle">切換 toggle</option>
+                <option value="sine">波動 sine</option>
+              </select>
+            </label>
+
+            <label class="full">
+              動作設定
+              <input id="modbusActionConfigInput" placeholder='例如 {"min":0,"max":100}' />
+            </label>
+          </div>
+
+          <div class="button-row">
+            <button id="generateRegistersButton">產生點位</button>
+            <button id="clearModbusPointsButton" class="bridge-preset-delete">清除全部點位</button>
+          </div>
+          
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>點位表</h2>
+              <p class="muted">
+                Address 使用 Modbus protocol address，從 0 開始。Display Address 僅為方便對照現場點表。
+              </p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="modbus-table">
+              <thead>
+                <tr>
+                  <th>啟用</th>
+                  <th>類型</th>
+                  <th>Address</th>
+                  <th>Display</th>
+                  <th>Hex / Bits</th>
+                  <th>Value</th>
+                  <th>Type</th>
+                  <th>Word Order</th>
+                  <th>Action</th>
+                  <th>Action Config</th>
+                  <th>Apply</th>
+                </tr>
+              </thead>
+              <tbody id="modbusPointTableBody">
+                <tr>
+                  <td colspan="11" class="empty">目前尚未建立 Modbus 點位。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Action Config 說明</h2>
+          <div class="config-hint">
+            <p>Action Config 可輸入 JSON，例如：</p>
+            <pre>random: {"min":0,"max":100}
+increment: {"step":1}
+sine: {"base":100,"amplitude":10,"periodSec":30}</pre>
+            <p>若 JSON 格式錯誤，系統會顯示中文錯誤訊息，且不會套用壞設定。</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>位址模式說明</h2>
+
+          <div class="roadmap-switcher">
+            <input type="radio" name="modbusRoadmap" id="roadmapTabRequest" checked />
+            <label for="roadmapTabRequest">請求位址解析模式</label>
+            <input type="radio" name="modbusRoadmap" id="roadmapTabInput" />
+            <label for="roadmapTabInput">位址輸入模式</label>
+
+            <div class="roadmap-panels">
+              <section class="roadmap-panel request">
+                <h3>Request Address Base Mode：請求位址解析模式</h3>
+                <p>這個設定用來決定：外部 BMS 或 Modbus Client 送進來的 request address，要如何對應到模擬器內部位址。</p>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Standard 0-based：request 0 = internal 0</div>
+                  <p class="muted-note">標準 Modbus 通訊位址模式。</p>
+                  <ul class="roadmap-list">
+                    <li>外部讀取 address 0 → 模擬器內部 address 0</li>
+                    <li>外部讀取 address 1 → 模擬器內部 address 1</li>
+                  </ul>
+                  <p class="muted-note">適合使用標準 0-based 位址的 Modbus client 或設備。</p>
+                </div>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Legacy 1-based：request 1 = internal 0</div>
+                  <p class="muted-note">相容部分 BMS 或舊式 Modbus 工具的位址習慣。</p>
+                  <ul class="roadmap-list">
+                    <li>外部讀取 address 1 → 模擬器內部 address 0</li>
+                    <li>外部讀取 address 2 → 模擬器內部 address 1</li>
+                  </ul>
+                  <p class="muted-note">如果你的 BMS 點表顯示第一點，但實際送出的 request address 是 1，請使用此模式。</p>
+                </div>
+
+                <div class="roadmap-quick-check">
+                  <strong>簡單判斷</strong>
+                  <ul>
+                    <li>如果 client 讀 address 0 才是第一點 → 選 Standard 0-based</li>
+                    <li>如果 client 讀 address 1 才是第一點 → 選 Legacy 1-based</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section class="roadmap-panel input">
+                <h3>Address Input Mode：位址輸入模式</h3>
+                <p>這個設定用來決定：你在模擬器 UI 產生點位時，輸入的起始位址要怎麼解讀。</p>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Reference Address / 1-based 相容模式</div>
+                  <p class="muted-note">適合依照現場點表或一般 Modbus 工具的顯示位址輸入。</p>
+                  <ul class="roadmap-list">
+                    <li>輸入 <code>300001</code> 代表 Input Register 3x 的第一點。</li>
+                    <li>也可以輸入 <code>1</code> 代表第一點。</li>
+                  </ul>
+                  <p class="muted-note">此模式不建議輸入 0。</p>
+                </div>
+
+                <div class="roadmap-option">
+                  <div class="roadmap-option-title">Protocol Address / 0-based 模式</div>
+                  <p class="muted-note">適合工程測試或已知道實際 protocol address 的情況。</p>
+                  <ul class="roadmap-list">
+                    <li>輸入 <code>0</code> 代表模擬器內部 address 0，也就是第一點。</li>
+                    <li>輸入 <code>1</code> 代表模擬器內部 address 1，也就是第二點。</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Modbus Request Log</h2>
+              <p class="muted">最多保留最近 100 筆 Modbus TCP request。</p>
+            </div>
+            <button id="clearModbusLogsButton" class="secondary">清除 Modbus Logs</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="modbus-log-table">
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>Client</th>
+                  <th>Unit ID</th>
+                  <th>FC</th>
+                  <th>類型</th>
+                  <th>動作</th>
+                  <th>Request</th>
+                  <th>Resolved</th>
+                  <th>Reference</th>
+                  <th>數量</th>
+                  <th>Value / Bits</th>
+                  <th>Response</th>
+                  <th>Mode</th>
+                  <th>狀態</th>
+                  <th>訊息</th>
+                </tr>
+              </thead>
+              <tbody id="modbusLogTableBody">
+                <tr>
+                  <td colspan="15" class="empty">目前沒有 Modbus Request Log。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <section id="bridgePanel" class="mode-panel" data-mode-panel="bridge">
+      <main class="layout">
+        <section class="card full-width bridge-intro-card">
+          <div class="section-title-row">
+            <div>
+              <h2>
+                <span class="label-text">Bridge Mapping 進階設定
+                  <span
+                    class="tooltip-indicator has-tooltip"
+                    data-tooltip="一般測試請在 API Simulator 的「API 回應來源」選擇 Modbus Bridge。&#10;此頁只用於設定 Modbus points 轉 API JSON 的 mapping。"
+                    tabindex="0"
+                    aria-label="Bridge Mapping 進階設定說明"
+                  >?</span>
+                </span>
+              </h2>
+              <p class="muted">此頁聚焦 mapping、Preview 與 Diagnostics。</p>
+            </div>
+          </div>
+
+          <div class="info-box bridge-workflow-box">
+            <div class="info-row">
+              <span class="info-label">目前狀態</span>
+              <span id="bridgePreviewModeText">目前使用預設 mappings；可先調整表格，再用 Preview 檢查輸出。</span>
+            </div>
+          </div>
+
+          <div id="bridgeMessageBox" class="message"></div>
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Mapping Table</h2>
+              <p class="muted">Bridge mapping 內部索引固定使用 regType + protocolAddress，不使用 point.id 與 Reference Address。</p>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button id="bridgeReloadMappingsButton" class="secondary">讀取</button>
+            <button id="bridgeLoadMappingsButton" class="secondary">載入 Sample Mapping</button>
+            <button id="bridgeAddMappingButton">新增</button>
+            <button id="bridgeSaveMappingsButton" class="bridge-preset-save">儲存</button>
+          </div>
+
+          <p class="help-text">JSON Path 僅支援物件點號路徑，例如 <code>site.power.total</code>；不支援 array path。</p>
+
+          <div class="table-wrap">
+            <table class="bridge-mapping-table">
+              <thead>
+                <tr>
+                  <th>啟用</th>
+                  <th>JSON Path</th>
+                  <th>來源類型</th>
+                  <th>Protocol Address</th>
+                  <th>轉換類型</th>
+                  <th>Fallback</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="bridgeMappingTableBody">
+                <tr>
+                  <td colspan="7" class="empty">目前沒有 Mapping，可先讀取已儲存設定或載入 Sample Mapping。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card full-width">
+          <div class="section-title-row">
+            <div>
+              <h2>Payload Preview</h2>
+              <p class="muted">Preview 會直接使用目前表格內容；Diagnostics 用來確認成功套用與缺漏的 mappings。</p>
+            </div>
+            <button id="bridgePreviewButton">產生 Preview</button>
+          </div>
+
+          <div class="bridge-preview-grid">
+            <div>
+              <div class="info-label">Payload Preview</div>
+              <pre id="bridgePayloadPreview">{
+  "sample": {}
+}</pre>
+            </div>
+            <div>
+              <details class="bridge-diagnostics">
+                <summary>
+                  Diagnostics / 除錯資訊
+                  <span id="bridgeDiagnosticsSummary" class="bridge-diagnostics-summary">尚無除錯資訊</span>
+                </summary>
+                <pre id="bridgeDiagnosticsPreview">尚無除錯資訊</pre>
+              </details>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </section>
+  </div>
+
+  <footer class="app-footer">
+    <span>v1.0.0</span> | <span>Copyright © 2025-2026 KennethLI </span>
+  </footer>
+
+</body>
+
+</html>

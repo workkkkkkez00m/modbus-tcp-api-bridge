@@ -1,7 +1,7 @@
 {
   "name": "modbus-tcp-api-bridge",
   "productName": "modbus-tcp-api-bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Standalone Electron + Vite mock app with API Simulator, Modbus TCP Simulator, and Modbus-to-API bridge mapping.",
   "main": ".vite/build/main.js",
   "private": true,

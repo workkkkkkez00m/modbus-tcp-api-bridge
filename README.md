@@ -173,6 +173,13 @@ User presets can be created, saved, and deleted in the Bridge Mapping panel.
 5. Back in API Simulator, switch response source to Modbus Bridge.
 6. Start API Server and call the API Simulator URL.
 
+## Internationalization
+
+- Supported locales: `zh-Hant` and `en`.
+- Switch language from the locale selector in the top-right corner of the app header.
+- Locale selection is stored locally and remains effective after restarting the app.
+- Server-side and internal log messages are not fully bilingual yet. Some raw messages returned from the server may still remain in their original language.
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=workkkkkkez00m%2Fmodbus-tcp-api-bridge&type=date&legend=top-left">

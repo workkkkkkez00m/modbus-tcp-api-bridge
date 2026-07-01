@@ -172,3 +172,10 @@ Bridge Mapping 介面可新增、儲存、刪除使用者自訂 Preset。
 4. 使用 Payload Preview 與 Diagnostics 確認輸出結果。
 5. 回 API Simulator，將 API 回應來源切到 Modbus Bridge。
 6. 啟動 API Server，並使用 API Simulator 的 URL 呼叫結果。
+
+## 語系切換
+
+- 目前支援語系：`zh-Hant`、`en`。
+- 可從畫面右上角的語系切換選單變更顯示語言。
+- 語系選擇會保存在本機，重新開啟 app 後仍會沿用。
+- server 端與 internal log message 目前尚未全面雙語化，部分直接來自 server 的原始訊息仍可能維持原語言。
