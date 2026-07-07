@@ -184,8 +184,8 @@ User presets can be created, saved, and deleted in the Bridge Mapping panel.
 
 <a href="https://www.star-history.com/?repos=workkkkkkez00m%2Fmodbus-tcp-api-bridge&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&theme=dark&legend=top-left&sealed_token=FCmwDtz3DsK_POY0scvXx9gG0UDBYlxuXHqbx6QcXwu401e4RumlYG3tBiqV4gp_ZM9iue3klRpWaENtwwxm7xid03JOTuXShAXUGrhJijzjZYTI7vg43LDU4EQsX94uaLjrj7N3nvKJP_OVEXTbkeJB608KbPgMXHm5HfFhuNqSkB4BbAG_cf8GrKN2" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left&sealed_token=FCmwDtz3DsK_POY0scvXx9gG0UDBYlxuXHqbx6QcXwu401e4RumlYG3tBiqV4gp_ZM9iue3klRpWaENtwwxm7xid03JOTuXShAXUGrhJijzjZYTI7vg43LDU4EQsX94uaLjrj7N3nvKJP_OVEXTbkeJB608KbPgMXHm5HfFhuNqSkB4BbAG_cf8GrKN2" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=workkkkkkez00m/modbus-tcp-api-bridge&type=date&legend=top-left&sealed_token=FCmwDtz3DsK_POY0scvXx9gG0UDBYlxuXHqbx6QcXwu401e4RumlYG3tBiqV4gp_ZM9iue3klRpWaENtwwxm7xid03JOTuXShAXUGrhJijzjZYTI7vg43LDU4EQsX94uaLjrj7N3nvKJP_OVEXTbkeJB608KbPgMXHm5HfFhuNqSkB4BbAG_cf8GrKN2" />
  </picture>
 </a>
